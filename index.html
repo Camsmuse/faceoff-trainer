@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>Faceoff Trainer</title>
+<style>
+  :root {
+    --ink: #0b1f3a;
+    --muted: #5b6f8a;
+    --line: #d7e0ec;
+    --ice: #f4f7fb;
+    --card: #ffffff;
+    --red: #c8102e;
+    --red-dark: #9a0c23;
+    --gold: #f5c518;
+    --green: #1f8a4c;
+    --warn: #c45c00;
+    --shadow: 0 10px 30px rgba(11, 31, 58, 0.08);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: radial-gradient(1200px 600px at 50% -10%, #e8eef8 0%, var(--ice) 45%, #eef2f7 100%);
+    color: var(--ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  body { padding: 16px; padding-bottom: 40px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; }
+  h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 3.5vw, 1.9rem);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sub { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; line-height: 1.4; max-width: 54ch; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: #b7c6da; }
+  .chip.active { background: var(--gold); border-color: #e0b000; }
+  .chip.ghost { background: transparent; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .controls { display: grid; gap: 12px; }
+  @media (min-width: 720px) {
+    .controls { grid-template-columns: 1.4fr 1fr; }
+  }
+  .field-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input, select {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: #fff;
+    color: var(--ink);
+    min-width: 0;
+  }
+  input { flex: 1; }
+  .hint { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .arena {
+    display: grid;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  @media (min-width: 820px) {
+    .arena { grid-template-columns: 1.1fr 0.9fr; align-items: start; }
+  }
+  .dot-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .status {
+    min-height: 1.4em;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+  }
+  .status.go { color: var(--green); }
+  .status.toss { color: var(--red); }
+  .status.ready { color: var(--ink); }
+  .dot {
+    width: min(72vw, 340px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e83a52, var(--red) 55%, var(--red-dark));
+    box-shadow: 0 18px 40px rgba(200, 16, 46, 0.28), inset 0 0 0 10px rgba(255,255,255,0.08);
+    position: relative;
+    display: grid;
+    place-items: center;
+    user-select: none;
+    cursor: pointer;
+    transition: transform 0.08s ease, filter 0.15s ease;
+  }
+  .dot:active { transform: scale(0.985); }
+  .dot.lined { filter: saturate(1.05); }
+  .dot.hold { animation: pulse 1.1s ease-in-out infinite; }
+  .dot.drop { box-shadow: 0 0 0 10px rgba(245, 197, 24, 0.55), 0 18px 40px rgba(200, 16, 46, 0.28); }
+  .dot.tossed { background: radial-gradient(circle at 35% 30%, #555, #222 60%, #111); }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.015); }
+  }
+  .bars {
+    position: absolute;
+    inset: 18%;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .bars span {
+    width: 10%;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.92);
+  }
+  .puck {
+    width: 22%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #111;
+    box-shadow: inset 0 0 0 3px #333, 0 6px 12px rgba(0,0,0,0.35);
+    z-index: 1;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .puck.up { transform: translateY(-18%) scale(0.92); opacity: 0.85; }
+  .puck.down { transform: translateY(0) scale(1); }
+  .overlay-msg {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #fff;
+    padding: 24px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .overlay-msg strong { font-size: clamp(1.6rem, 6vw, 2.4rem); letter-spacing: 0.06em; }
+  .overlay-msg small { display: block; margin-top: 6px; opacity: 0.9; font-size: 0.95rem; }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .metric {
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .metric .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+  .metric .v { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
+  .metric .v.elite { color: var(--green); }
+  .metric .v.sharp { color: #0b6bcb; }
+  .metric .v.average { color: var(--warn); }
+  .metric .v.slow { color: var(--red); }
+  .chart {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    align-items: end;
+    height: 96px;
+    margin-top: 10px;
+  }
+  .bar {
+    background: #d9e4f2;
+    border-radius: 6px 6px 3px 3px;
+    min-height: 6px;
+    position: relative;
+  }
+  .bar.filled { background: linear-gradient(180deg, #5aa7ff, #0b6bcb); }
+  .bar.toss { background: #c8102e; min-height: 18px; }
+  .bar .ms {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.62rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .bands {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .bands b { color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.danger { color: var(--red); border-color: #f0c2cb; background: #fff5f7; }
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 8px 0; }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+  }
+  .toast.show { opacity: 1; }
+
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:5; padding:6px 0; background:rgba(244,247,251,.92); backdrop-filter:blur(6px); }
+  .tabs .chip.active { background: var(--ink); color:#fff; border-color: var(--ink); }
+  .view[hidden] { display:none !important; }
+  @media (max-width: 700px) {
+    #view-train:not([hidden]) { display:flex; flex-direction:column; }
+    #view-train > .arena { order:-1; margin-top:0; }
+    #view-train > .panel { margin-top:12px; }
+    header p { display:none; }
+    header h1 { margin:0 0 6px; font-size:1.2rem; }
+    .dot { width:min(66vw, 38vh); }
+    html, body { overflow-x:hidden; }
+  }
+
+  .grid2 { display:grid; gap:12px; }
+  @media (min-width: 820px) { .grid2 { grid-template-columns: 1.2fr 1fr; align-items:start; } }
+  video { width:100%; max-height:60vh; background:#000; border-radius:12px; }
+  textarea { width:100%; min-height:70px; border:1px solid var(--line); border-radius:10px; padding:10px; font:inherit; }
+  .btn.sm { padding:6px 10px; font-size:.8rem; }
+  .btn.on { background: var(--gold); border-color:#e0b000; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+  .opp-card { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px; background:#f8fafc; }
+  .opp-card b { font-size:1rem; }
+  svg text { font-family: inherit; }
+  td input { padding:6px 8px; font-size:.85rem; width:100%; }
+  .tslink { color:#0b6bcb; cursor:pointer; text-decoration:underline; }
+</style>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<meta name="theme-color" content="#0b6bcb" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Faceoff" />
+</head>
+<body>
+<noscript><div style="padding:24px;font:18px system-ui;background:#fde68a;color:#111">This app needs JavaScript. <b>Open this in Safari or Chrome — previews block the app.</b> (In Mail/Messages/Files, tap Share → Open in Safari, or save the file and open it in a browser.)</div></noscript>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Faceoff Reaction Trainer</h1>
+        <p class="sub">Line up, wait out the hold, strike on the drop. Jump early and you’re tossed — same as a violation. Sets of 10. Built for phone or tablet at the gym.</p>
+      </div>
+      <div class="pill-row">
+        <button class="chip ghost" id="calibrateBtn" type="button">Calibrate</button>
+        <button class="chip ghost" id="exportBtn" type="button">Export CSV</button>
+      </div>
+    </header>
+    <nav class="tabs" id="tabs">
+      <button class="chip active" data-view="train" type="button">Trainer</button>
+      <button class="chip" data-view="video" type="button">Video review</button>
+      <button class="chip" data-view="opps" type="button">Opponents</button>
+      <button class="chip" data-view="dash" type="button">Coach dashboard</button>
+    </nav>
+    <div class="view" id="view-train">
+
+    <div class="panel controls">
+      <div>
+        <div class="label">Player / session</div>
+        <div class="field-row">
+          <input id="playerName" placeholder="Player name" maxlength="40" autocomplete="nickname" />
+          <select id="handedness" aria-label="Handedness">
+            <option value="L">Left shot</option>
+            <option value="R">Right shot</option>
+          </select>
+          <select id="side" aria-label="Dot side">
+            <option value="strong">Strong side</option>
+            <option value="weak">Weak side</option>
+            <option value="neutral">Neutral / either</option>
+          </select>
+        </div>
+        <div class="hint">Saved on this device. Handedness and side are logged with every set for matchup prep later.</div>
+      </div>
+      <div>
+        <div class="label">Goal this set</div>
+        <div class="field-row">
+          <select id="goalBand">
+            <option value="200">Elite &lt; 200 ms</option>
+            <option value="250" selected>Sharp &lt; 250 ms</option>
+            <option value="300">Average &lt; 300 ms</option>
+          </select>
+          <button class="chip" id="cueBtn" type="button" aria-pressed="true">Cue: Whistle on</button>
+        </div>
+        <div class="field-row" style="margin-top:8px">
+          <select id="oppSelect" aria-label="Opponent" style="flex:1"><option value="">No opponent (use linesman mode)</option></select>
+        </div>
+        <div class="hint" id="oppHint"></div>
+        <div class="hint" id="latencyHint">Device latency offset: 0 ms</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="label">Linesman timing</div>
+      <div class="pill-row" id="modeRow" role="group" aria-label="Linesman timing">
+        <button class="chip active" data-mode="quick" type="button">Quick</button>
+        <button class="chip" data-mode="standard" type="button">Standard</button>
+        <button class="chip" data-mode="slow" type="button">Slow hold</button>
+        <button class="chip" data-mode="erratic" type="button">Erratic</button>
+      </div>
+      <div class="hint" id="modeHint">Quick: drop after 0.4–0.9s. Closest to a fast NHL drop.</div>
+    </div>
+
+    <div class="arena">
+      <div class="dot-wrap">
+        <div class="status ready" id="status">Tap the dot to line up</div>
+        <div class="dot" id="dot" role="button" tabindex="0" aria-label="Faceoff dot. Tap to line up, then tap again on the drop.">
+          <div class="bars" aria-hidden="true"><span></span><span></span></div>
+          <div class="puck up" id="puck" aria-hidden="true"></div>
+          <div class="overlay-msg" id="overlay" hidden></div>
+        </div>
+        <div class="bands">
+          <span><b>Elite</b> &lt;200</span>
+          <span><b>Sharp</b> 200–250</span>
+          <span><b>Average</b> 250–300</span>
+          <span><b>Slow</b> &gt;300</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Last</div><div class="v" id="lastVal">—</div></div>
+          <div class="metric"><div class="k">Set avg</div><div class="v" id="avgVal">—</div></div>
+          <div class="metric"><div class="k">Best today</div><div class="v" id="bestVal">—</div></div>
+          <div class="metric"><div class="k">Tossed</div><div class="v" id="tossVal">0</div></div>
+          <div class="metric"><div class="k">Rep</div><div class="v" id="repVal">0 / 10</div></div>
+          <div class="metric"><div class="k">Goal hits</div><div class="v" id="goalVal">0 / 0</div></div>
+        </div>
+        <div class="label" style="margin-top:14px">This set</div>
+        <div class="chart" id="chart" aria-label="Reaction times this set"></div>
+        <div class="actions">
+          <button class="btn" id="skipBtn" type="button">Skip wait</button>
+          <button class="btn danger" id="resetBtn" type="button">Reset session</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="label">Session log</div>
+      <div id="logEmpty" class="empty">Finish a set of 10 to start the log.</div>
+      <div style="overflow-x:auto">
+        <table id="logTable" hidden>
+          <thead>
+            <tr>
+              <th>#</th><th>Mode</th><th>Side</th><th>Opp</th><th>Avg</th><th>Best</th><th>Toss</th><th>Goal%</th><th>Time</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /view-train -->
+    <div class="view" id="view-video" hidden>
+      <div class="panel">
+        <div class="label">Video review</div>
+        <div class="field-row">
+          <select id="vSet" style="flex:1" aria-label="Set to review"></select>
+          <label class="btn" for="vFile">Load / record video</label>
+          <input id="vFile" type="file" accept="video/*" capture="environment" hidden />
+        </div>
+        <div class="hint">Video stays on this device and is never saved — only timestamps and notes are stored per set.</div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <video id="vPlayer" controls playsinline></video>
+          <div class="empty" id="vEmpty">No video loaded. Pick a file (or record on phone) of this set.</div>
+          <div class="actions">
+            <button class="btn sm" data-step="-1" type="button">◀ Frame</button>
+            <button class="btn sm" data-step="1" type="button">Frame ▶</button>
+            <button class="btn sm" data-rate="0.25" type="button">0.25x</button>
+            <button class="btn sm" data-rate="0.5" type="button">0.5x</button>
+            <button class="btn sm on" data-rate="1" type="button">1x</button>
+            <span class="hint" id="vTime" style="margin:auto 0">0.000 s</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="label">Set reps</div>
+          <div id="vSummary" class="hint"></div>
+          <div id="vChart"></div>
+          <div style="overflow-x:auto"><table><thead><tr><th>Rep</th><th>Time</th><th>Video @</th><th>Note</th></tr></thead><tbody id="vReps"></tbody></table></div>
+          <div class="label" style="margin-top:12px">Set notes</div>
+          <textarea id="vNotes" placeholder="Hand position, stance, what the opponent did…"></textarea>
+          <div class="actions"><button class="btn primary" id="vSave" type="button">Save notes</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-opps" hidden>
+      <div class="grid2">
+        <div class="panel">
+          <div class="label" id="oFormTitle">New opponent</div>
+          <div class="controls" style="grid-template-columns:1fr">
+            <input id="oName" placeholder="Name / label (e.g. #19 Smith – Wolves)" maxlength="60" />
+            <div class="field-row">
+              <select id="oHand"><option value="L">Left shot</option><option value="R">Right shot</option><option value="?">Unknown</option></select>
+              <select id="oSide"><option value="strong">Prefers strong side</option><option value="weak">Prefers weak side</option><option value="either">Either</option></select>
+            </div>
+            <div class="field-row">
+              <label class="hint" style="flex:1">Typical hold (ms)<input id="oHold" type="number" min="200" max="4000" step="50" value="900" style="width:100%"/></label>
+              <label class="hint" style="flex:1">Variability ± (ms)<input id="oVar" type="number" min="0" max="2000" step="50" value="250" style="width:100%"/></label>
+            </div>
+            <div class="field-row">
+              <select id="oStyle" style="flex:1">
+                <option value="consistent">Linesman: consistent</option>
+                <option value="quick">Linesman: quick drops</option>
+                <option value="sticky">Linesman: sticky / long holds</option>
+                <option value="erratic">Linesman: erratic</option>
+              </select>
+              <label class="hint" style="flex:1">Quick-pitch %<input id="oQuick" type="number" min="0" max="100" step="5" value="10" style="width:100%"/></label>
+            </div>
+            <textarea id="oNotes" placeholder="Tendencies, win/loss notes (e.g. cheats forehand, won 6/10 last game)"></textarea>
+            <div class="field-row">
+              <label class="hint">Wins <input id="oW" type="number" min="0" value="0" style="width:80px"/></label>
+              <label class="hint">Losses <input id="oL" type="number" min="0" value="0" style="width:80px"/></label>
+            </div>
+            <div class="actions" style="margin-top:0">
+              <button class="btn primary" id="oSave" type="button">Save opponent</button>
+              <button class="btn" id="oClear" type="button">New</button>
+            </div>
+            <div class="hint">Selecting an opponent on the Trainer replaces the linesman mode: holds are drawn around their typical hold ± variability (shaped by linesman style), with occasional quick pitches.</div>
+          </div>
+        </div>
+        <div class="panel"><div class="label">Opponents</div><div id="oList"></div></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-dash" hidden>
+      <div class="panel">
+        <div class="label">Data</div>
+        <div class="field-row">
+          <label class="btn" for="dImport">Import CSV(s)</label>
+          <input id="dImport" type="file" accept=".csv,text/csv" multiple hidden />
+          <button class="btn" id="dExportCsv" type="button">Export combined CSV</button>
+          <button class="btn" id="dBackup" type="button">JSON backup</button>
+          <label class="btn" for="dRestore">Restore JSON</label>
+          <input id="dRestore" type="file" accept=".json,application/json" hidden />
+          <button class="btn danger" id="dClearImp" type="button">Clear imports</button>
+        </div>
+        <div class="hint" id="dInfo"></div>
+        <div class="field-row" style="margin-top:10px">
+          <select id="dPlayer" style="flex:1"></select>
+        </div>
+      </div>
+      <div class="panel"><div class="cards" id="dCards"></div></div>
+      <div class="panel"><div class="label">Trend — set average (ms, lower is better)</div><div id="dTrend"></div></div>
+      <div class="grid2">
+        <div class="panel"><div class="label">By side</div><div id="dSide"></div></div>
+        <div class="panel"><div class="label">By mode</div><div id="dMode"></div></div>
+      </div>
+      <div class="panel"><div class="label">By opponent</div><div id="dOpp"></div></div>
+      <div class="panel"><div class="label">Per player</div><div style="overflow-x:auto" id="dTable"></div></div>
+    </div>
+
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+<script>
+  var LS=(function(){var m={};function mem(){return{getItem:function(k){return k in m?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},key:function(i){return Object.keys(m)[i]||null},get length(){return Object.keys(m).length},_all:function(){return m}}}
+  try{var s=window.localStorage,t='__fo_t';s.setItem(t,'1');s.removeItem(t);
+    return{getItem:function(k){try{return s.getItem(k)}catch(e){return null}},setItem:function(k,v){try{s.setItem(k,v)}catch(e){}},removeItem:function(k){try{s.removeItem(k)}catch(e){}},key:function(i){return s.key(i)},get length(){return s.length},_all:function(){var o={};for(var i=0;i<s.length;i++){o[s.key(i)]=1}return o}};
+  }catch(e){return mem()}})();
+  document.addEventListener('pointerdown',function u(){try{var C=window.AudioContext||window.webkitAudioContext;if(C){window.__foCtx=window.__foCtx||new C();if(window.__foCtx.state==='suspended')window.__foCtx.resume();}}catch(e){}},{passive:true});
+</script>
+<script>
+(() => {
+  const MODES = {
+    quick:   { label: 'Quick', hint: 'Quick: drop after 0.4–0.9s. Closest to a fast NHL drop.', min: 400, max: 900 },
+    standard:{ label: 'Standard', hint: 'Standard: 0.8–1.6s hold. Most common practice feel.', min: 800, max: 1600 },
+    slow:    { label: 'Slow hold', hint: 'Slow hold: 1.5–2.8s. Trains patience against sticky linesmen.', min: 1500, max: 2800 },
+    erratic: { label: 'Erratic', hint: 'Erratic: 0.35–2.6s random. Punishes guessing.', min: 350, max: 2600 },
+  };
+
+  const state = {
+    mode: 'quick',
+    cue: true,
+    phase: 'idle', // idle | lined | hold | drop | feedback
+    holdTimer: null,
+    dropAt: 0,
+    reps: [], // {ms|null, tossed:boolean}
+    tossed: 0,
+    bestToday: null,
+    latencyOffset: 0,
+    session: [],
+    calibrating: false,
+  };
+
+  const el = {
+    dot: document.getElementById('dot'),
+    puck: document.getElementById('puck'),
+    overlay: document.getElementById('overlay'),
+    status: document.getElementById('status'),
+    lastVal: document.getElementById('lastVal'),
+    avgVal: document.getElementById('avgVal'),
+    bestVal: document.getElementById('bestVal'),
+    tossVal: document.getElementById('tossVal'),
+    repVal: document.getElementById('repVal'),
+    goalVal: document.getElementById('goalVal'),
+    chart: document.getElementById('chart'),
+    cueBtn: document.getElementById('cueBtn'),
+    modeHint: document.getElementById('modeHint'),
+    playerName: document.getElementById('playerName'),
+    handedness: document.getElementById('handedness'),
+    side: document.getElementById('side'),
+    goalBand: document.getElementById('goalBand'),
+    latencyHint: document.getElementById('latencyHint'),
+    logEmpty: document.getElementById('logEmpty'),
+    logTable: document.getElementById('logTable'),
+    logBody: document.getElementById('logBody'),
+    toast: document.getElementById('toast'),
+  };
+
+  function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.toast.classList.remove('show'), 1800);
+  }
+
+  function loadPrefs() {
+    try {
+      const p = JSON.parse(LS.getItem('fo_prefs_v2') || '{}');
+      if (p.player) el.playerName.value = p.player;
+      if (p.hand) el.handedness.value = p.hand;
+      if (p.side) el.side.value = p.side;
+      if (p.goal) el.goalBand.value = String(p.goal);
+      if (typeof p.cue === 'boolean') state.cue = p.cue;
+      if (typeof p.latency === 'number') state.latencyOffset = p.latency;
+      if (p.mode && MODES[p.mode]) state.mode = p.mode;
+      const day = new Date().toDateString();
+      const bestKey = 'fo_best_' + day;
+      const b = LS.getItem(bestKey);
+      if (b) state.bestToday = Number(b);
+      const sess = JSON.parse(LS.getItem('fo_session_v2') || '[]');
+      if (Array.isArray(sess)) state.session = sess;
+    } catch {}
+    syncCueBtn();
+    syncModeChips();
+    el.latencyHint.textContent = `Device latency offset: ${state.latencyOffset} ms`;
+    renderAll();
+    renderLog();
+  }
+
+  function savePrefs() {
+    LS.setItem('fo_prefs_v2', JSON.stringify({
+      player: el.playerName.value.trim(),
+      hand: el.handedness.value,
+      side: el.side.value,
+      goal: Number(el.goalBand.value),
+      cue: state.cue,
+      latency: state.latencyOffset,
+      mode: state.mode,
+    }));
+  }
+
+  function syncCueBtn() {
+    el.cueBtn.textContent = state.cue ? 'Cue: Whistle on' : 'Cue: Whistle off';
+    el.cueBtn.classList.toggle('active', state.cue);
+    el.cueBtn.setAttribute('aria-pressed', String(state.cue));
+  }
+
+  function syncModeChips() {
+    document.querySelectorAll('#modeRow .chip').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === state.mode);
+    });
+    el.modeHint.textContent = MODES[state.mode].hint;
+  }
+
+  function bandClass(ms) {
+    if (ms == null) return '';
+    if (ms < 200) return 'elite';
+    if (ms < 250) return 'sharp';
+    if (ms < 300) return 'average';
+    return 'slow';
+  }
+
+  function fmt(ms) {
+    return ms == null ? '—' : `${Math.round(ms)} ms`;
+  }
+
+  function playWhistle() {
+    if (!state.cue) return;
+    try {
+      const ctx = playWhistle.ctx || (playWhistle.ctx = window.__foCtx || new (window.AudioContext || window.webkitAudioContext)()); if (ctx.state === 'suspended') ctx.resume();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = 1180;
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime;
+      g.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.start(t); o.stop(t + 0.2);
+    } catch {}
+  }
+
+  function clearHold() {
+    if (state.holdTimer) {
+      clearTimeout(state.holdTimer);
+      state.holdTimer = null;
+    }
+  }
+
+  function setPhase(phase, statusText, statusClass) {
+    state.phase = phase;
+    el.dot.classList.remove('lined', 'hold', 'drop', 'tossed');
+    el.overlay.hidden = true;
+    el.overlay.innerHTML = '';
+    el.status.className = 'status ' + (statusClass || '');
+    el.status.textContent = statusText;
+    if (phase === 'lined' || phase === 'hold') {
+      el.dot.classList.add('lined');
+      if (phase === 'hold') el.dot.classList.add('hold');
+      el.puck.className = 'puck up';
+    } else if (phase === 'drop') {
+      el.dot.classList.add('drop');
+      el.puck.className = 'puck down';
+    } else {
+      el.puck.className = 'puck up';
+    }
+  }
+
+  function randomHold() {
+    const opp = currentOpp();
+    if (opp) return oppHold(opp);
+    const m = MODES[state.mode];
+    return m.min + Math.random() * (m.max - m.min);
+  }
+
+  function lineUp() {
+    clearHold();
+    setPhase('lined', 'Lined up — wait for the drop…', 'ready');
+    const delay = randomHold();
+    state.holdTimer = setTimeout(() => {
+      state.phase = 'drop';
+      state.dropAt = performance.now();
+      el.dot.classList.remove('hold');
+      el.dot.classList.add('drop');
+      el.puck.className = 'puck down';
+      el.status.className = 'status go';
+      el.status.textContent = 'DROP — tap now';
+      playWhistle();
+    }, delay);
+    state.phase = 'hold';
+    el.dot.classList.add('hold');
+  }
+
+  function tossed() {
+    clearHold();
+    state.tossed += 1;
+    state.reps.push({ ms: null, tossed: true });
+    el.dot.classList.add('tossed');
+    el.overlay.hidden = false;
+    el.overlay.innerHTML = '<div><strong>TOSSED</strong><small>Jumped the drop — that rep’s gone. Tap to re-center.</small></div>';
+    el.status.className = 'status toss';
+    el.status.textContent = 'Violation — early jump';
+    state.phase = 'feedback';
+    renderAll();
+    maybeFinishSet();
+  }
+
+  function success(rawMs) {
+    const ms = Math.max(0, Math.round(rawMs - state.latencyOffset));
+    state.reps.push({ ms, tossed: false });
+    if (state.bestToday == null || ms < state.bestToday) {
+      state.bestToday = ms;
+      LS.setItem('fo_best_' + new Date().toDateString(), String(ms));
+    }
+    const cls = bandClass(ms);
+    el.overlay.hidden = false;
+    el.overlay.innerHTML = `<div><strong>${ms} ms</strong><small>${cls.toUpperCase()} — tap for next rep</small></div>`;
+    el.status.className = 'status go';
+    el.status.textContent = `${ms} ms · ${cls}`;
+    state.phase = 'feedback';
+    renderAll();
+    maybeFinishSet();
+  }
+
+  function maybeFinishSet() {
+    if (state.reps.length < 10) return;
+    const valid = state.reps.filter(r => !r.tossed).map(r => r.ms);
+    const avg = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0) / valid.length) : null;
+    const best = valid.length ? Math.min(...valid) : null;
+    const goal = Number(el.goalBand.value);
+    const hits = valid.filter(v => v < goal).length;
+    const entry = {
+      id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      n: state.session.length + 1,
+      mode: currentOpp() ? 'Opponent' : MODES[state.mode].label,
+      opponent: currentOpp() ? currentOpp().name : '',
+      goal,
+      side: el.side.value,
+      hand: el.handedness.value,
+      player: el.playerName.value.trim() || 'Player',
+      avg,
+      best,
+      tossed: state.reps.filter(r => r.tossed).length,
+      goalPct: valid.length ? Math.round(100 * hits / valid.length) : 0,
+      reps: state.reps.slice(),
+      at: new Date().toISOString(),
+    };
+    state.session.unshift(entry);
+    LS.setItem('fo_session_v2', JSON.stringify(state.session.slice(0, 50)));
+    addHistory(entry);
+    renderLog();
+    toast(`Set complete · avg ${fmt(avg)}`);
+    // prepare next set but keep best today
+    state.reps = [];
+    state.tossed = 0;
+    renderAll();
+  }
+
+  function onDot(e) {
+    e.preventDefault();
+    if (state.calibrating) return finishCalibrate();
+    if (state.phase === 'idle' || state.phase === 'feedback') {
+      lineUp();
+      return;
+    }
+    if (state.phase === 'lined' || state.phase === 'hold') {
+      tossed();
+      return;
+    }
+    if (state.phase === 'drop') {
+      success(performance.now() - state.dropAt);
+    }
+  }
+
+  function renderAll() {
+    const valid = state.reps.filter(r => !r.tossed).map(r => r.ms);
+    const last = state.reps.length ? state.reps[state.reps.length - 1] : null;
+    const lastMs = last && !last.tossed ? last.ms : null;
+    const avg = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0) / valid.length) : null;
+    el.lastVal.textContent = last && last.tossed ? 'TOSS' : fmt(lastMs);
+    el.lastVal.className = 'v ' + (last && last.tossed ? 'slow' : bandClass(lastMs));
+    el.avgVal.textContent = fmt(avg);
+    el.avgVal.className = 'v ' + bandClass(avg);
+    el.bestVal.textContent = fmt(state.bestToday);
+    el.bestVal.className = 'v ' + bandClass(state.bestToday);
+    el.tossVal.textContent = String(state.reps.filter(r => r.tossed).length);
+    el.repVal.textContent = `${state.reps.length} / 10`;
+    const goal = Number(el.goalBand.value);
+    const hits = valid.filter(v => v < goal).length;
+    el.goalVal.textContent = `${hits} / ${valid.length || 0}`;
+
+    el.chart.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+      const rep = state.reps[i];
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      if (rep) {
+        if (rep.tossed) {
+          bar.classList.add('toss');
+        } else {
+          bar.classList.add('filled');
+          const h = Math.max(8, Math.min(96, 96 - (rep.ms / 450) * 96));
+          bar.style.height = h + 'px';
+          const label = document.createElement('div');
+          label.className = 'ms';
+          label.textContent = rep.ms;
+          bar.appendChild(label);
+        }
+      } else {
+        bar.style.height = '8px';
+      }
+      el.chart.appendChild(bar);
+    }
+  }
+
+  function renderLog() {
+    if (!state.session.length) {
+      el.logEmpty.hidden = false;
+      el.logTable.hidden = true;
+      return;
+    }
+    el.logEmpty.hidden = true;
+    el.logTable.hidden = false;
+    el.logBody.innerHTML = state.session.map(s => {
+      const t = new Date(s.at);
+      const time = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `<tr>
+        <td>${s.n}</td>
+        <td>${s.mode}</td>
+        <td>${s.side}</td>
+        <td>${esc(s.opponent || '—')}</td>
+        <td>${fmt(s.avg)}</td>
+        <td>${fmt(s.best)}</td>
+        <td>${s.tossed}</td>
+        <td>${s.goalPct}%</td>
+        <td>${time}</td>
+        <td>${s.id ? `<button class="btn sm" data-review="${s.id}" type="button">Review</button>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function startCalibrate() {
+    state.calibrating = true;
+    clearHold();
+    setPhase('idle', 'Calibration: tap as soon as the dot flashes gold', 'ready');
+    el.overlay.hidden = false;
+    el.overlay.innerHTML = '<div><strong>CALIBRATE</strong><small>Get ready…</small></div>';
+    setTimeout(() => {
+      state.dropAt = performance.now();
+      el.dot.classList.add('drop');
+      el.overlay.innerHTML = '<div><strong>TAP</strong><small>Now</small></div>';
+      el.status.textContent = 'TAP now';
+      playWhistle();
+    }, 800 + Math.random() * 700);
+  }
+
+  function finishCalibrate() {
+    if (!state.dropAt) return;
+    const lag = Math.round(performance.now() - state.dropAt);
+    // Assume true human floor ~80ms; anything above is device/browser lag estimate contribution.
+    // We only offset excess over 120ms to avoid over-correcting.
+    state.latencyOffset = Math.max(0, lag - 120);
+    state.calibrating = false;
+    state.dropAt = 0;
+    savePrefs();
+    el.latencyHint.textContent = `Device latency offset: ${state.latencyOffset} ms (measured ${lag} ms)`;
+    setPhase('idle', 'Calibration saved. Tap the dot to line up', 'ready');
+    toast(`Latency offset set to ${state.latencyOffset} ms`);
+  }
+
+  function exportCsv() {
+    if (!state.session.length) {
+      toast('No completed sets to export yet');
+      return;
+    }
+    download(`faceoff-session-${new Date().toISOString().slice(0,10)}.csv`, toCsv(state.session), 'text/csv');
+  }
+
+  // Events
+  el.dot.addEventListener('pointerdown', onDot);
+  el.dot.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') onDot(e);
+  });
+  document.getElementById('modeRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-mode]');
+    if (!btn) return;
+    state.mode = btn.dataset.mode;
+    syncModeChips();
+    savePrefs();
+  });
+  el.cueBtn.addEventListener('click', () => {
+    state.cue = !state.cue;
+    syncCueBtn();
+    savePrefs();
+  });
+  ['playerName','handedness','side','goalBand'].forEach(id => {
+    document.getElementById(id).addEventListener('change', savePrefs);
+    document.getElementById(id).addEventListener('blur', savePrefs);
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!confirm('Reset current set and clear today’s session log on this device? Best today stays.')) return;
+    clearHold();
+    state.reps = [];
+    state.tossed = 0;
+    state.session = [];
+    LS.removeItem('fo_session_v2');
+    setPhase('idle', 'Tap the dot to line up', 'ready');
+    renderAll();
+    renderLog();
+  });
+  document.getElementById('skipBtn').addEventListener('click', () => {
+    if (state.phase === 'hold' || state.phase === 'lined') {
+      clearHold();
+      state.phase = 'drop';
+      state.dropAt = performance.now();
+      el.dot.classList.remove('hold');
+      el.dot.classList.add('drop');
+      el.puck.className = 'puck down';
+      el.status.className = 'status go';
+      el.status.textContent = 'DROP — tap now';
+      playWhistle();
+    }
+  });
+  document.getElementById('calibrateBtn').addEventListener('click', startCalibrate);
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+  // ================= v3 additions =================
+  const K = { hist: 'fo_history_v3', opps: 'fo_opps_v3', notes: 'fo_notes_v3', imp: 'fo_imported_v3', oppSel: 'fo_oppsel_v3' };
+  const load = (k, d) => { try { const v = JSON.parse(LS.getItem(k)); return v == null ? d : v; } catch { return d; } };
+  const save = (k, v) => { try { LS.setItem(k, JSON.stringify(v)); } catch (e) { toast('Storage full — export a backup'); } };
+  const $ = (id) => document.getElementById(id);
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  let opps = load(K.opps, []);
+  let editingOpp = null;
+  let videoUrl = null;
+
+  function currentOpp() { const id = el.oppSelect && el.oppSelect.value; return id ? opps.find(o => o.id === id) || null : null; }
+  function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function oppHold(o) {
+    const mean = Number(o.hold) || 900, sd = Math.max(0, Number(o.vari) || 0);
+    if (Math.random() * 100 < (Number(o.quick) || 0)) return 300 + Math.random() * 200; // quick pitch
+    let t;
+    switch (o.style) {
+      case 'quick': t = mean - Math.abs(gauss()) * sd * 0.6; break;
+      case 'sticky': t = mean + Math.abs(gauss()) * sd; break;
+      case 'erratic': t = mean + (Math.random() * 2 - 1) * sd * 2; break;
+      default: t = mean + gauss() * sd * 0.5;
+    }
+    return Math.min(4500, Math.max(300, t));
+  }
+  function addHistory(entry) {
+    const h = load(K.hist, []);
+    h.unshift(entry);
+    save(K.hist, h.slice(0, 3000));
+    refreshSetPicker();
+  }
+
+  // ---------- CSV ----------
+  const CSV_COLS = ['set_id','player','hand','set','mode','side','opponent','avg_ms','best_ms','tossed','goal_ms','goal_pct','iso_time','reps'];
+  function toCsv(list) {
+    const rows = [CSV_COLS];
+    list.forEach(s => rows.push([s.id || '', s.player, s.hand, s.n, s.mode, s.side, s.opponent || '', s.avg ?? '', s.best ?? '', s.tossed, s.goal ?? '', s.goalPct, s.at,
+      (s.reps || []).map(r => r.tossed ? 'T' : r.ms).join('|')]));
+    return rows.map(r => r.map(x => `"${String(x ?? '').replaceAll('"','""')}"`).join(',')).join('\n');
+  }
+  function parseCsv(text) {
+    const rows = []; let row = [], f = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i+1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+      else f += c;
+    }
+    if (f !== '' || row.length) { row.push(f); rows.push(row); }
+    const head = (rows.shift() || []).map(h => h.trim().toLowerCase());
+    const num = v => v === '' || v == null ? null : Number(v);
+    return rows.filter(r => r.length > 1).map(r => {
+      const o = {}; head.forEach((h, i) => o[h] = r[i]);
+      const reps = (o.reps || '').split('|').filter(Boolean).map(x => x === 'T' ? { ms: null, tossed: true } : { ms: Number(x), tossed: false });
+      return { id: o.set_id || '', player: o.player || 'Player', hand: o.hand || '', n: num(o.set), mode: o.mode || '', side: o.side || '',
+        opponent: o.opponent || '', avg: num(o.avg_ms), best: num(o.best_ms), tossed: num(o.tossed) || 0, goal: num(o.goal_ms),
+        goalPct: num(o.goal_pct) || 0, at: o.iso_time || '', reps, imported: true };
+    });
+  }
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function allData() {
+    const seen = new Set(), out = [];
+    [...load(K.hist, []), ...state.session, ...load(K.imp, [])].forEach(s => {
+      const key = s.id || (s.player + '|' + s.at);
+      if (seen.has(key)) return; seen.add(key); out.push(s);
+    });
+    return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  }
+
+  // ---------- tabs ----------
+  function showView(v) {
+    document.querySelectorAll('.view').forEach(x => x.hidden = x.id !== 'view-' + v);
+    document.querySelectorAll('#tabs .chip').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+    if (v === 'video') renderVideoSet();
+    if (v === 'dash') renderDash();
+    if (v === 'opps') renderOpps();
+  }
+
+  // ---------- opponents ----------
+  function oppOptions() {
+    const cur = el.oppSelect.value || load(K.oppSel, '');
+    el.oppSelect.innerHTML = '<option value="">No opponent (use linesman mode)</option>' + opps.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+    el.oppSelect.value = opps.some(o => o.id === cur) ? cur : '';
+    oppHint();
+  }
+  function oppHint() {
+    const o = currentOpp();
+    $('oppHint').textContent = o ? `Opponent mode: holds ~${o.hold}±${o.vari} ms (${o.style}), ${o.quick}% quick pitch · ${o.hand} shot, prefers ${o.side}. Linesman mode ignored.` : '';
+    document.getElementById('modeRow').style.opacity = o ? 0.45 : 1;
+  }
+  function fillOppForm(o) {
+    editingOpp = o ? o.id : null;
+    $('oFormTitle').textContent = o ? 'Edit opponent' : 'New opponent';
+    $('oName').value = o?.name || ''; $('oHand').value = o?.hand || 'L'; $('oSide').value = o?.side || 'strong';
+    $('oHold').value = o?.hold ?? 900; $('oVar').value = o?.vari ?? 250; $('oStyle').value = o?.style || 'consistent';
+    $('oQuick').value = o?.quick ?? 10; $('oNotes').value = o?.notes || ''; $('oW').value = o?.w ?? 0; $('oL').value = o?.l ?? 0;
+  }
+  function saveOpp() {
+    const name = $('oName').value.trim();
+    if (!name) return toast('Give the opponent a name');
+    const o = { id: editingOpp || 'o' + Date.now().toString(36), name, hand: $('oHand').value, side: $('oSide').value,
+      hold: Number($('oHold').value) || 900, vari: Number($('oVar').value) || 0, style: $('oStyle').value,
+      quick: Math.min(100, Math.max(0, Number($('oQuick').value) || 0)), notes: $('oNotes').value, w: Number($('oW').value) || 0, l: Number($('oL').value) || 0 };
+    const i = opps.findIndex(x => x.id === o.id);
+    if (i >= 0) opps[i] = o; else opps.push(o);
+    save(K.opps, opps); fillOppForm(null); renderOpps(); oppOptions(); toast('Opponent saved');
+  }
+  function renderOpps() {
+    const hist = allData();
+    $('oList').innerHTML = opps.length ? opps.map(o => {
+      const sets = hist.filter(s => s.opponent === o.name);
+      const v = sets.filter(s => s.avg != null);
+      const avg = v.length ? Math.round(v.reduce((a, s) => a + s.avg, 0) / v.length) : null;
+      return `<div class="opp-card"><b>${esc(o.name)}</b> <span class="hint">${o.hand} shot · prefers ${o.side} · ${o.style} · hold ${o.hold}±${o.vari} ms · ${o.quick}% quick</span>
+        <div class="hint">Real draws: ${o.w}W–${o.l}L${o.w + o.l ? ` (${Math.round(100 * o.w / (o.w + o.l))}%)` : ''} · Drill sets vs: ${sets.length}${avg != null ? ' · avg ' + avg + ' ms' : ''}</div>
+        ${o.notes ? `<div style="margin-top:6px;white-space:pre-wrap">${esc(o.notes)}</div>` : ''}
+        <div class="actions"><button class="btn sm" data-oedit="${o.id}" type="button">Edit</button><button class="btn sm" data-ouse="${o.id}" type="button">Drill vs</button><button class="btn sm danger" data-odel="${o.id}" type="button">Delete</button></div></div>`;
+    }).join('') : '<div class="empty">No opponents yet.</div>';
+  }
+
+  // ---------- video review ----------
+  function refreshSetPicker(selectId) {
+    const sel = $('vSet'); const cur = selectId || sel.value;
+    const h = allData().slice().reverse().filter(s => s.id);
+    sel.innerHTML = h.length ? h.map(s => `<option value="${s.id}">${esc(s.player)} · ${new Date(s.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${esc(s.opponent || s.mode)} · avg ${fmt(s.avg)}</option>`).join('') : '<option value="">No completed sets yet</option>';
+    if (cur && h.some(s => s.id === cur)) sel.value = cur;
+  }
+  function getSet(id) { return allData().find(s => s.id === id); }
+  function repSvg(reps, goal, onClickable) {
+    const W = 320, H = 120, n = Math.max(10, reps.length), bw = W / n;
+    let g = '';
+    if (goal) { const y = H - 14 - Math.min(1, goal / 450) * (H - 30); g += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="#1f8a4c" stroke-dasharray="4 3"/><text x="${W - 2}" y="${y - 3}" font-size="9" text-anchor="end" fill="#1f8a4c">goal ${goal}</text>`; }
+    reps.forEach((r, i) => {
+      const x = i * bw + 3, w = bw - 6;
+      if (r.tossed) g += `<rect x="${x}" y="${H - 34}" width="${w}" height="20" rx="3" fill="#c8102e"/><text x="${x + w / 2}" y="${H - 20}" font-size="9" fill="#fff" text-anchor="middle">T</text>`;
+      else { const h = Math.max(4, Math.min(1, r.ms / 450) * (H - 30)); g += `<rect x="${x}" y="${H - 14 - h}" width="${w}" height="${h}" rx="3" fill="#0b6bcb"/><text x="${x + w / 2}" y="${H - 17 - h}" font-size="9" text-anchor="middle" fill="#5b6f8a">${r.ms}</text>`; }
+      g += `<text x="${x + w / 2}" y="${H - 2}" font-size="9" text-anchor="middle" fill="#5b6f8a">${i + 1}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Rep chart">${g}</svg>`;
+  }
+  function renderVideoSet() {
+    refreshSetPicker();
+    const s = getSet($('vSet').value);
+    const notes = load(K.notes, {});
+    const n = s ? (notes[s.id] || { marks: {}, text: '' }) : null;
+    if (!s) { $('vSummary').textContent = 'Finish a set on the Trainer first.'; $('vChart').innerHTML = ''; $('vReps').innerHTML = ''; $('vNotes').value = ''; return; }
+    $('vSummary').textContent = `${s.player} (${s.hand}) · ${s.side} side · ${s.opponent ? 'vs ' + s.opponent : s.mode} · avg ${fmt(s.avg)} · best ${fmt(s.best)} · tossed ${s.tossed} · goal ${s.goalPct}%`;
+    $('vChart').innerHTML = repSvg(s.reps || [], s.goal);
+    $('vReps').innerHTML = (s.reps || []).map((r, i) => {
+      const m = n.marks[i] || {};
+      return `<tr><td>${i + 1}</td><td>${r.tossed ? '<b style="color:#c8102e">TOSS</b>' : r.ms + ' ms'}</td>
+        <td><button class="btn sm" data-mark="${i}" type="button">Mark</button> ${m.t != null ? `<span class="tslink" data-seek="${m.t}">${m.t.toFixed(2)}s</span>` : ''}</td>
+        <td><input data-rnote="${i}" value="${esc(m.note || '')}" placeholder="note"/></td></tr>`;
+    }).join('') || '<tr><td colspan="4" class="empty">Rep detail not available (imported from older CSV).</td></tr>';
+    $('vNotes').value = n.text || '';
+  }
+  function saveNotes(silent) {
+    const id = $('vSet').value; if (!id) return;
+    const all = load(K.notes, {}); const n = all[id] || { marks: {}, text: '' };
+    n.text = $('vNotes').value;
+    document.querySelectorAll('[data-rnote]').forEach(inp => { const i = inp.dataset.rnote; n.marks[i] = { ...(n.marks[i] || {}), note: inp.value }; });
+    all[id] = n; save(K.notes, all); if (!silent) toast('Notes saved for this set');
+  }
+
+  // ---------- dashboard ----------
+  function stats(list) {
+    const reps = list.flatMap(s => s.reps && s.reps.length ? s.reps : []);
+    const v = list.filter(s => s.avg != null);
+    const repCount = reps.length || list.length * 10;
+    const tossed = list.reduce((a, s) => a + (Number(s.tossed) || 0), 0);
+    return { sets: list.length, avg: v.length ? Math.round(v.reduce((a, s) => a + s.avg, 0) / v.length) : null,
+      best: v.length ? Math.min(...list.filter(s => s.best != null).map(s => s.best)) : null,
+      tossRate: repCount ? Math.round(100 * tossed / repCount) : 0,
+      goal: list.length ? Math.round(list.reduce((a, s) => a + (Number(s.goalPct) || 0), 0) / list.length) : 0 };
+  }
+  function splitSvg(groups) {
+    const keys = Object.keys(groups); if (!keys.length) return '<div class="empty">No data.</div>';
+    const rowH = 26, W = 340, H = keys.length * rowH + 6;
+    const max = Math.max(350, ...keys.map(k => stats(groups[k]).avg || 0));
+    let g = '';
+    keys.forEach((k, i) => {
+      const st = stats(groups[k]), y = i * rowH + 3, w = st.avg ? (st.avg / max) * 170 : 0;
+      const col = st.avg == null ? '#ccc' : st.avg < 200 ? '#1f8a4c' : st.avg < 250 ? '#0b6bcb' : st.avg < 300 ? '#c45c00' : '#c8102e';
+      g += `<text x="0" y="${y + 15}" font-size="11" fill="#0b1f3a">${esc(k.slice(0, 16))}</text><rect x="100" y="${y + 3}" width="${w}" height="16" rx="3" fill="${col}"/>
+        <text x="${104 + w}" y="${y + 15}" font-size="10" fill="#5b6f8a">${st.avg ?? '—'} ms · ${st.sets} sets · T ${st.tossRate}% · G ${st.goal}%</text>`;
+    });
+    return `<svg viewBox="0 0 ${W + 120} ${H}" width="100%">${g}</svg>`;
+  }
+  function trendSvg(list) {
+    const pts = list.filter(s => s.avg != null);
+    if (pts.length < 1) return '<div class="empty">No completed sets yet.</div>';
+    const W = 600, H = 180, P = 30;
+    const ys = pts.map(s => s.avg), lo = Math.min(...ys, 150) - 10, hi = Math.max(...ys, 320) + 10;
+    const X = i => P + (pts.length === 1 ? (W - 2 * P) / 2 : i * (W - 2 * P) / (pts.length - 1));
+    const Y = v => H - P + 10 - (v - lo) / (hi - lo) * (H - P - 10);
+    let g = '';
+    [200, 250, 300].forEach(b => { if (b > lo && b < hi) g += `<line x1="${P}" x2="${W - 5}" y1="${Y(b)}" y2="${Y(b)}" stroke="#d7e0ec" stroke-dasharray="3 3"/><text x="2" y="${Y(b) + 3}" font-size="9" fill="#5b6f8a">${b}</text>`; });
+    // rolling avg (5)
+    const roll = pts.map((_, i) => { const w = pts.slice(Math.max(0, i - 4), i + 1); return w.reduce((a, s) => a + s.avg, 0) / w.length; });
+    g += `<polyline fill="none" stroke="#9fb3cc" stroke-width="1.5" points="${pts.map((s, i) => X(i) + ',' + Y(s.avg)).join(' ')}"/>`;
+    g += `<polyline fill="none" stroke="#c8102e" stroke-width="2.5" points="${roll.map((v, i) => X(i) + ',' + Y(v)).join(' ')}"/>`;
+    pts.forEach((s, i) => g += `<circle cx="${X(i)}" cy="${Y(s.avg)}" r="3" fill="#0b6bcb"><title>${esc(s.player)} ${String(s.at).slice(0, 10)} ${s.avg} ms ${esc(s.opponent || s.mode)}</title></circle>`);
+    g += `<text x="${P}" y="${H - 2}" font-size="9" fill="#5b6f8a">${String(pts[0].at).slice(0, 10)}</text><text x="${W - 5}" y="${H - 2}" font-size="9" text-anchor="end" fill="#5b6f8a">${String(pts[pts.length - 1].at).slice(0, 10)}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg><div class="hint">Blue = each set · Red = 5-set rolling average · dashed = 200/250/300 bands</div>`;
+  }
+  const groupBy = (list, f) => list.reduce((m, s) => { const k = f(s) || '—'; (m[k] = m[k] || []).push(s); return m; }, {});
+  function renderDash() {
+    const data = allData();
+    const players = [...new Set(data.map(s => s.player))].sort();
+    const sel = $('dPlayer'), cur = sel.value;
+    sel.innerHTML = '<option value="">All players</option>' + players.map(p => `<option>${esc(p)}</option>`).join('');
+    if (players.includes(cur)) sel.value = cur;
+    const list = sel.value ? data.filter(s => s.player === sel.value) : data;
+    $('dInfo').textContent = `${data.length} sets total (${load(K.imp, []).length} imported, ${data.length - data.filter(s => s.imported).length} from this device).`;
+    const st = stats(list);
+    $('dCards').innerHTML = [['Sets', st.sets], ['Avg', fmt(st.avg)], ['Best', fmt(st.best)], ['Toss rate', st.tossRate + '%'], ['Goal hit', st.goal + '%']]
+      .map(([k, v]) => `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    $('dTrend').innerHTML = trendSvg(list);
+    $('dSide').innerHTML = splitSvg(groupBy(list, s => s.side));
+    $('dMode').innerHTML = splitSvg(groupBy(list, s => s.mode));
+    $('dOpp').innerHTML = splitSvg(groupBy(list.filter(s => s.opponent), s => s.opponent));
+    const byP = groupBy(data, s => s.player);
+    $('dTable').innerHTML = `<table><thead><tr><th>Player</th><th>Sets</th><th>Avg</th><th>Best</th><th>Toss%</th><th>Goal%</th><th>Strong</th><th>Weak</th><th>Last</th></tr></thead><tbody>${
+      Object.keys(byP).sort().map(p => { const L = byP[p], a = stats(L), sS = stats(L.filter(s => s.side === 'strong')), sW = stats(L.filter(s => s.side === 'weak'));
+        return `<tr><td>${esc(p)}</td><td>${a.sets}</td><td>${fmt(a.avg)}</td><td>${fmt(a.best)}</td><td>${a.tossRate}%</td><td>${a.goal}%</td><td>${fmt(sS.avg)}</td><td>${fmt(sW.avg)}</td><td>${String(L[L.length - 1].at).slice(0, 10)}</td></tr>`; }).join('')}</tbody></table>`;
+  }
+  function backup() {
+    const out = { app: 'faceoff-trainer', version: 3, exported: new Date().toISOString(), data: {} };
+    for (let i = 0; i < LS.length; i++) { const k = LS.key(i); if (k.startsWith('fo_')) out.data[k] = LS.getItem(k); }
+    download(`faceoff-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 1), 'application/json');
+  }
+  function restore(file) {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const j = JSON.parse(r.result);
+        if (!j || !j.data || j.app !== 'faceoff-trainer') throw new Error('bad');
+        if (!confirm('Restore replaces all trainer data on this device with the backup. Continue?')) return;
+        Object.keys(LS._all()).filter(k => k.startsWith('fo_')).forEach(k => LS.removeItem(k));
+        Object.entries(j.data).forEach(([k, v]) => { if (k.startsWith('fo_')) LS.setItem(k, v); });
+        toast('Backup restored — reloading'); setTimeout(() => location.reload(), 700);
+      } catch { toast('Not a valid Faceoff backup file'); }
+    };
+    r.readAsText(file);
+  }
+
+  function initV3() {
+    el.oppSelect = $('oppSelect');
+    // migrate v2 session into history once
+    if (!LS.getItem(K.hist)) save(K.hist, state.session.map((s, i) => ({ ...s, id: s.id || 'v2_' + i + '_' + Date.parse(s.at) })));
+    oppOptions(); refreshSetPicker(); renderOpps();
+    $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) showView(b.dataset.view); });
+    el.oppSelect.addEventListener('change', () => { save(K.oppSel, el.oppSelect.value); oppHint(); });
+    $('oSave').addEventListener('click', saveOpp);
+    $('oClear').addEventListener('click', () => fillOppForm(null));
+    $('oList').addEventListener('click', e => {
+      const t = e.target;
+      if (t.dataset.oedit) fillOppForm(opps.find(o => o.id === t.dataset.oedit));
+      if (t.dataset.ouse) { el.oppSelect.value = t.dataset.ouse; save(K.oppSel, t.dataset.ouse); oppHint(); showView('train'); }
+      if (t.dataset.odel && confirm('Delete this opponent? Logged sets keep the name.')) { opps = opps.filter(o => o.id !== t.dataset.odel); save(K.opps, opps); oppOptions(); renderOpps(); }
+    });
+    el.logBody.addEventListener('click', e => { const b = e.target.closest('[data-review]'); if (b) { showView('video'); refreshSetPicker(b.dataset.review); $('vSet').value = b.dataset.review; renderVideoSet(); } });
+    // video
+    const v = $('vPlayer');
+    v.hidden = true;
+    $('vFile').addEventListener('change', e => {
+      const f = e.target.files[0]; if (!f) return;
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+      videoUrl = URL.createObjectURL(f); v.src = videoUrl; v.hidden = false; $('vEmpty').hidden = true;
+    });
+    $('vSet').addEventListener('change', () => { renderVideoSet(); });
+    v.addEventListener('timeupdate', () => $('vTime').textContent = v.currentTime.toFixed(3) + ' s');
+    v.addEventListener('seeked', () => $('vTime').textContent = v.currentTime.toFixed(3) + ' s');
+    document.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => {
+      v.playbackRate = Number(b.dataset.rate); document.querySelectorAll('[data-rate]').forEach(x => x.classList.toggle('on', x === b));
+    }));
+    document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => {
+      v.pause(); v.currentTime = Math.max(0, v.currentTime + Number(b.dataset.step) / 30);
+    }));
+    $('vReps').addEventListener('click', e => {
+      const t = e.target;
+      if (t.dataset.mark != null) {
+        if (!v.src) return toast('Load a video first');
+        saveNotes(true);
+        const all = load(K.notes, {}), id = $('vSet').value, n = all[id] || { marks: {}, text: '' };
+        n.marks[t.dataset.mark] = { ...(n.marks[t.dataset.mark] || {}), t: v.currentTime };
+        all[id] = n; save(K.notes, all); renderVideoSet();
+      }
+      if (t.dataset.seek != null && v.src) { v.pause(); v.currentTime = Number(t.dataset.seek); }
+    });
+    $('vSave').addEventListener('click', () => saveNotes(false));
+    document.addEventListener('keydown', e => {
+      if ($('view-video').hidden || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+      if (e.key === ',' || e.key === 'ArrowLeft') { v.pause(); v.currentTime = Math.max(0, v.currentTime - 1 / 30); }
+      if (e.key === '.' || e.key === 'ArrowRight') { v.pause(); v.currentTime += 1 / 30; }
+    });
+    // dashboard
+    $('dPlayer').addEventListener('change', renderDash);
+    $('dImport').addEventListener('change', async e => {
+      let imp = load(K.imp, []), added = 0;
+      for (const f of e.target.files) { const rows = parseCsv(await f.text()); imp = imp.concat(rows); added += rows.length; }
+      const seen = new Set(); imp = imp.filter(s => { const k = s.id || s.player + '|' + s.at; if (seen.has(k)) return false; seen.add(k); return true; });
+      save(K.imp, imp); e.target.value = ''; toast(`Imported ${added} rows`); renderDash(); refreshSetPicker();
+    });
+    $('dExportCsv').addEventListener('click', () => { const d = allData(); if (!d.length) return toast('No data'); download(`faceoff-combined-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(d), 'text/csv'); });
+    $('dBackup').addEventListener('click', backup);
+    $('dRestore').addEventListener('change', e => { if (e.target.files[0]) restore(e.target.files[0]); e.target.value = ''; });
+    $('dClearImp').addEventListener('click', () => { if (confirm('Remove all imported CSV rows? Local data stays.')) { save(K.imp, []); renderDash(); } });
+  }
+
+  loadPrefs();
+  initV3();
+  setPhase('idle', 'Tap the dot to line up', 'ready');
+})();
+</script>
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('SW',e)));}</script>
+</body>
+</html>
