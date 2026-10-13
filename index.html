@@ -253,6 +253,26 @@
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:5; padding:6px 0; background:rgba(244,247,251,.92); backdrop-filter:blur(6px); }
   .tabs .chip.active { background: var(--ink); color:#fff; border-color: var(--ink); }
   .view[hidden] { display:none !important; }
+  .dot-wrap { touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; }
+  .dot .puck { display:none; }
+  .lm { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; overflow:visible; }
+  .lm .arm { transform-origin: 170px -20px; transform: rotate(-14deg) translateY(-26px); transition: transform .35s ease; }
+  .dot.lined .lm .arm, .dot.hold .lm .arm { transform: rotate(0deg) translateY(0); }
+  .dot.catch .lm .arm { transform: rotate(-14deg) translateY(-30px); transition: transform .28s ease-out; }
+  .lm .fingers { transform-origin: 104px 92px; transition: transform .06s linear; }
+  .dot.drop .lm .fingers { transform: rotate(38deg); }
+  .lm .lpuck { transition: transform .13s cubic-bezier(.5,0,1,1); transform: translate(0,0); }
+  .dot.drop .lm .lpuck { transform: translate(-4px, 56px); }
+  .dot.hold.tell .lm .arm { transform: translateY(3px); }
+  .metric.small .v { font-size: 1rem; }
+  .qcard { border:1px solid var(--line); border-radius:12px; padding:14px; background:#f8fafc; }
+  .qopt { display:block; width:100%; text-align:left; margin-top:8px; }
+  .qopt.right { background:#e6f6ec; border-color:#1f8a4c; }
+  .qopt.wrong { background:#fff1f3; border-color:#c8102e; }
+  .tag { display:inline-block; font-size:.7rem; font-weight:800; letter-spacing:.06em; padding:2px 8px; border-radius:999px; background:#0b1f3a; color:#fff; }
+  .tag.nhl { background:#5b6f8a; }
+  .scard h4 { margin:10px 0 4px; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .scard p, .scard li { margin:4px 0; }
   @media (max-width: 700px) {
     #view-train:not([hidden]) { display:flex; flex-direction:column; }
     #view-train > .arena { order:-1; margin-top:0; }
@@ -302,6 +322,8 @@
       <button class="chip" data-view="video" type="button">Video review</button>
       <button class="chip" data-view="opps" type="button">Opponents</button>
       <button class="chip" data-view="dash" type="button">Coach dashboard</button>
+      <button class="chip" data-view="quiz" type="button">Rules quiz</button>
+      <button class="chip" data-view="cards" type="button">Strategy</button>
     </nav>
     <div class="view" id="view-train">
 
@@ -319,8 +341,13 @@
             <option value="weak">Weak side</option>
             <option value="neutral">Neutral / either</option>
           </select>
+          <select id="zone" aria-label="Zone">
+            <option value="offensive">Offensive zone</option>
+            <option value="defensive">Defensive zone</option>
+            <option value="neutral">Neutral zone</option>
+          </select>
         </div>
-        <div class="hint">Saved on this device. Handedness and side are logged with every set for matchup prep later.</div>
+        <div class="hint">Saved on this device. Handedness, side and zone are logged with every set for matchup prep later.</div>
       </div>
       <div>
         <div class="label">Goal this set</div>
@@ -330,7 +357,7 @@
             <option value="250" selected>Sharp &lt; 250 ms</option>
             <option value="300">Average &lt; 300 ms</option>
           </select>
-          <button class="chip" id="cueBtn" type="button" aria-pressed="true">Cue: Whistle on</button>
+          <button class="chip" id="cueBtn" type="button" aria-pressed="false">Whistle add-on: off</button>
         </div>
         <div class="field-row" style="margin-top:8px">
           <select id="oppSelect" aria-label="Opponent" style="flex:1"><option value="">No opponent (use linesman mode)</option></select>
@@ -343,20 +370,31 @@
     <div class="panel">
       <div class="label">Linesman timing</div>
       <div class="pill-row" id="modeRow" role="group" aria-label="Linesman timing">
-        <button class="chip active" data-mode="quick" type="button">Quick</button>
+        <button class="chip" data-mode="random" type="button">Random (recommended)</button>
+        <button class="chip" data-mode="quick" type="button">Quick</button>
         <button class="chip" data-mode="standard" type="button">Standard</button>
         <button class="chip" data-mode="slow" type="button">Slow hold</button>
-        <button class="chip" data-mode="erratic" type="button">Erratic</button>
+        
       </div>
-      <div class="hint" id="modeHint">Quick: drop after 0.4–0.9s. Closest to a fast NHL drop.</div>
+      <div class="hint" id="modeHint"></div>
+      <div class="hint">Cue is the linesman's hand: react when he <b>releases</b> the puck. About 1 in 6 reps he resets without dropping — stay still. Holds are random so rhythm can't be guessed.</div>
     </div>
 
     <div class="arena">
       <div class="dot-wrap">
-        <div class="status ready" id="status">Tap the dot to line up</div>
-        <div class="dot" id="dot" role="button" tabindex="0" aria-label="Faceoff dot. Tap to line up, then tap again on the drop.">
+        <div class="status ready" id="status">Tap anywhere here to line up</div>
+        <div class="dot" id="dot" role="button" tabindex="0" aria-label="Faceoff dot. Tap to line up, then tap again when the linesman drops the puck.">
           <div class="bars" aria-hidden="true"><span></span><span></span></div>
           <div class="puck up" id="puck" aria-hidden="true"></div>
+          <svg class="lm" viewBox="0 0 200 200" aria-hidden="true">
+            <g class="arm">
+              <path d="M215 -40 C180 10 150 40 128 70" stroke="#1b1b1b" stroke-width="30" stroke-linecap="round" fill="none"/>
+              <path d="M215 -40 C180 10 150 40 128 70" stroke="#f4f4f4" stroke-width="30" stroke-linecap="butt" stroke-dasharray="9 9" fill="none" opacity=".9"/>
+              <ellipse cx="116" cy="82" rx="17" ry="14" fill="#e8b48f" stroke="#a8724e" stroke-width="2"/>
+              <g class="lpuck"><ellipse cx="100" cy="100" rx="17" ry="9" fill="#111"/><rect x="83" y="94" width="34" height="6" fill="#111"/><ellipse cx="100" cy="94" rx="17" ry="9" fill="#2a2a2a"/></g>
+              <g class="fingers"><path d="M106 88 q-14 6 -12 18" stroke="#e8b48f" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M106 88 q-14 6 -12 18" stroke="#a8724e" stroke-width="1.5" fill="none"/></g>
+            </g>
+          </svg>
           <div class="overlay-msg" id="overlay" hidden></div>
         </div>
         <div class="bands">
@@ -369,12 +407,14 @@
 
       <div>
         <div class="metrics">
+          <div class="metric"><div class="k">Set median</div><div class="v" id="avgVal">—</div></div>
+          <div class="metric"><div class="k">Variability (SD)</div><div class="v" id="sdVal">—</div></div>
+          <div class="metric"><div class="k">Early jumps</div><div class="v" id="tossVal">0</div></div>
+          <div class="metric"><div class="k">Catch false starts</div><div class="v" id="catchVal">0 / 0</div></div>
           <div class="metric"><div class="k">Last</div><div class="v" id="lastVal">—</div></div>
-          <div class="metric"><div class="k">Set avg</div><div class="v" id="avgVal">—</div></div>
-          <div class="metric"><div class="k">Best today</div><div class="v" id="bestVal">—</div></div>
-          <div class="metric"><div class="k">Tossed</div><div class="v" id="tossVal">0</div></div>
           <div class="metric"><div class="k">Rep</div><div class="v" id="repVal">0 / 10</div></div>
-          <div class="metric"><div class="k">Goal hits</div><div class="v" id="goalVal">0 / 0</div></div>
+          <div class="metric small"><div class="k">Goal hits</div><div class="v" id="goalVal">0 / 0</div></div>
+          <div class="metric small"><div class="k">Best today</div><div class="v" id="bestVal">—</div></div>
         </div>
         <div class="label" style="margin-top:14px">This set</div>
         <div class="chart" id="chart" aria-label="Reaction times this set"></div>
@@ -392,7 +432,7 @@
         <table id="logTable" hidden>
           <thead>
             <tr>
-              <th>#</th><th>Mode</th><th>Side</th><th>Opp</th><th>Avg</th><th>Best</th><th>Toss</th><th>Goal%</th><th>Time</th><th></th>
+              <th>#</th><th>Mode</th><th>Zone</th><th>Side</th><th>Opp</th><th>Median</th><th>SD</th><th>Early</th><th>Catch FS</th><th>Goal%</th><th>Time</th><th></th>
             </tr>
           </thead>
           <tbody id="logBody"></tbody>
@@ -492,13 +532,40 @@
         </div>
       </div>
       <div class="panel"><div class="cards" id="dCards"></div></div>
-      <div class="panel"><div class="label">Trend — set average (ms, lower is better)</div><div id="dTrend"></div></div>
+      <div class="panel"><div class="label">Trend — set median (ms, lower is better)</div><div id="dTrend"></div></div>
       <div class="grid2">
         <div class="panel"><div class="label">By side</div><div id="dSide"></div></div>
-        <div class="panel"><div class="label">By mode</div><div id="dMode"></div></div>
+        <div class="panel"><div class="label">By zone</div><div id="dZone"></div></div>
       </div>
+      <div class="panel"><div class="label">By mode</div><div id="dMode"></div></div>
       <div class="panel"><div class="label">By opponent</div><div id="dOpp"></div></div>
       <div class="panel"><div class="label">Per player</div><div style="overflow-x:auto" id="dTable"></div></div>
+    </div>
+
+    <div class="view" id="view-quiz" hidden>
+      <div class="panel">
+        <div class="label">Faceoff rules quiz</div>
+        <div class="hint">NCAA 2026-27 first (changes effective Aug 1, 2026), with a few NHL contrast questions marked <span class="tag nhl">NHL</span>. Based on the rulebook and NCAA rule-change summaries; check the official book for edge cases.</div>
+        <div class="field-row" style="margin-top:8px">
+          <select id="qFilter" style="flex:1"><option value="all">All questions</option><option value="ncaa">NCAA only</option><option value="new">NCAA 2026-27 changes only</option><option value="nhl">NHL contrast only</option></select>
+          <button class="btn" id="qRestart" type="button">Restart</button>
+        </div>
+      </div>
+      <div class="panel"><div id="quizBox"></div></div>
+    </div>
+
+    <div class="view" id="view-cards" hidden>
+      <div class="panel">
+        <div class="label">Situation strategy</div>
+        <div class="field-row">
+          <select id="sZone" style="flex:1"><option value="offensive">Offensive zone</option><option value="defensive">Defensive zone</option><option value="neutral">Neutral zone</option></select>
+          <select id="sSide" style="flex:1"><option value="strong">Strong side</option><option value="weak">Weak side</option></select>
+          <select id="sState" style="flex:1"><option value="ev">5v5</option><option value="pp">Power play</option><option value="pk">Penalty kill</option><option value="late">Late game / 6v5</option></select>
+        </div>
+        <div class="hint">Strong side = the dot where your forehand faces the boards. Data is mostly NHL; coaching advice is consensus, not proof — test it against your own clean-win % by side.</div>
+      </div>
+      <div class="panel scard" id="sCard"></div>
+      <div class="panel scard" id="sBasics"></div>
     </div>
 
   </div>
@@ -514,15 +581,26 @@
 <script>
 (() => {
   const MODES = {
-    quick:   { label: 'Quick', hint: 'Quick: drop after 0.4–0.9s. Closest to a fast NHL drop.', min: 400, max: 900 },
-    standard:{ label: 'Standard', hint: 'Standard: 0.8–1.6s hold. Most common practice feel.', min: 800, max: 1600 },
-    slow:    { label: 'Slow hold', hint: 'Slow hold: 1.5–2.8s. Trains patience against sticky linesmen.', min: 1500, max: 2800 },
-    erratic: { label: 'Erratic', hint: 'Erratic: 0.35–2.6s random. Punishes guessing.', min: 350, max: 2600 },
+    random:  { label: 'Random', hint: 'Random: 0.4–2.5s, flat-hazard timing — the drop is never "due". Best for real training.', min: 400, max: 2500, tau: 900 },
+    quick:   { label: 'Quick', hint: 'Quick: holds mostly 0.4–1.0s (random within). Fast linesman.', min: 400, max: 1000, tau: 400 },
+    standard:{ label: 'Standard', hint: 'Standard: holds mostly 0.7–1.7s (random within).', min: 700, max: 1700, tau: 600 },
+    slow:    { label: 'Slow hold', hint: 'Slow hold: 1.4–2.5s (random within). Trains patience vs sticky linesmen.', min: 1400, max: 2500, tau: 700 },
   };
+  MODES.erratic = MODES.random; // legacy pref
+  const HOLD_MIN = 400, HOLD_MAX = 2500, CATCH_P = 0.17;
+  // Truncated exponential on [min,max]: near-constant hazard, so waiting longer gives no hint the drop is coming.
+  function truncExp(min, max, tau) { const u = Math.random(), span = max - min; return min - tau * Math.log(1 - u * (1 - Math.exp(-span / tau))); }
+  const median = a => { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y), m = b.length >> 1; return Math.round(b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2); };
+  const sdev = a => { if (a.length < 2) return null; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.round(Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1))); };
+  const quant = (a, q) => { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y), i = (b.length - 1) * q, lo = Math.floor(i); return b[lo] + (b[Math.ceil(i)] - b[lo]) * (i - lo); };
+  const iqr = a => a.length < 4 ? null : Math.round(quant(a, .75) - quant(a, .25));
+  const dropReps = reps => (reps || []).filter(r => !r.catch);
+  const catchReps = reps => (reps || []).filter(r => r.catch);
 
   const state = {
-    mode: 'quick',
-    cue: true,
+    mode: 'random',
+    cue: false,
+    isCatch: false,
     phase: 'idle', // idle | lined | hold | drop | feedback
     holdTimer: null,
     dropAt: 0,
@@ -545,6 +623,10 @@
     tossVal: document.getElementById('tossVal'),
     repVal: document.getElementById('repVal'),
     goalVal: document.getElementById('goalVal'),
+    sdVal: document.getElementById('sdVal'),
+    catchVal: document.getElementById('catchVal'),
+    zone: document.getElementById('zone'),
+    wrap: document.querySelector('.dot-wrap'),
     chart: document.getElementById('chart'),
     cueBtn: document.getElementById('cueBtn'),
     modeHint: document.getElementById('modeHint'),
@@ -573,9 +655,10 @@
       if (p.hand) el.handedness.value = p.hand;
       if (p.side) el.side.value = p.side;
       if (p.goal) el.goalBand.value = String(p.goal);
-      if (typeof p.cue === 'boolean') state.cue = p.cue;
+      if (typeof p.whistle === 'boolean') state.cue = p.whistle; // whistle is an add-on now; old 'cue' pref ignored
+      if (p.zone) el.zone.value = p.zone;
       if (typeof p.latency === 'number') state.latencyOffset = p.latency;
-      if (p.mode && MODES[p.mode]) state.mode = p.mode;
+      if (p.mode && MODES[p.mode]) state.mode = p.mode === 'erratic' ? 'random' : p.mode;
       const day = new Date().toDateString();
       const bestKey = 'fo_best_' + day;
       const b = LS.getItem(bestKey);
@@ -596,14 +679,15 @@
       hand: el.handedness.value,
       side: el.side.value,
       goal: Number(el.goalBand.value),
-      cue: state.cue,
+      whistle: state.cue,
+      zone: el.zone.value,
       latency: state.latencyOffset,
       mode: state.mode,
     }));
   }
 
   function syncCueBtn() {
-    el.cueBtn.textContent = state.cue ? 'Cue: Whistle on' : 'Cue: Whistle off';
+    el.cueBtn.textContent = state.cue ? 'Whistle add-on: on' : 'Whistle add-on: off';
     el.cueBtn.classList.toggle('active', state.cue);
     el.cueBtn.setAttribute('aria-pressed', String(state.cue));
   }
@@ -653,7 +737,7 @@
 
   function setPhase(phase, statusText, statusClass) {
     state.phase = phase;
-    el.dot.classList.remove('lined', 'hold', 'drop', 'tossed');
+    el.dot.classList.remove('lined', 'hold', 'drop', 'tossed', 'catch');
     el.overlay.hidden = true;
     el.overlay.innerHTML = '';
     el.status.className = 'status ' + (statusClass || '');
@@ -672,36 +756,69 @@
 
   function randomHold() {
     const opp = currentOpp();
-    if (opp) return oppHold(opp);
-    const m = MODES[state.mode];
-    return m.min + Math.random() * (m.max - m.min);
+    let t;
+    if (opp) {
+      // Opponent/linesman profile sets the centre; add a flat-hazard jitter so it can't be timed.
+      t = oppHold(opp) + (truncExp(0, 600, 300) - 200);
+    } else {
+      const m = MODES[state.mode] || MODES.random;
+      t = truncExp(m.min, m.max, m.tau);
+    }
+    state.lastHold = Math.round(Math.min(HOLD_MAX, Math.max(HOLD_MIN, t)));
+    return state.lastHold;
+  }
+  function doDrop() {
+    state.phase = 'drop';
+    state.isCatch = false;
+    state.dropAt = performance.now();
+    el.dot.classList.remove('hold');
+    el.dot.classList.add('drop');
+    el.puck.className = 'puck down';
+    el.status.className = 'status go';
+    el.status.textContent = 'DROP — tap now';
+    playWhistle();
+  }
+  function doCatchReset() {
+    // Linesman pulls the puck back up without dropping.
+    state.phase = 'catch';
+    el.dot.classList.remove('hold', 'lined');
+    el.dot.classList.add('catch');
+    el.status.className = 'status ready';
+    el.status.textContent = 'No drop — linesman reset. Stay still…';
+    state.holdTimer = setTimeout(() => {
+      state.holdTimer = null;
+      state.reps.push({ ms: null, tossed: false, catch: true, hold: state.lastHold });
+      state.isCatch = false;
+      el.overlay.hidden = false;
+      el.overlay.innerHTML = '<div><strong>GOOD HOLD</strong><small>No drop and you stayed put. Tap for next rep.</small></div>';
+      el.status.className = 'status go';
+      el.status.textContent = 'Catch trial passed';
+      state.phase = 'feedback';
+      renderAll();
+    }, 700);
   }
 
   function lineUp() {
     clearHold();
-    setPhase('lined', 'Lined up — wait for the drop…', 'ready');
+    setPhase('lined', 'Lined up — watch the hand…', 'ready');
     const delay = randomHold();
-    state.holdTimer = setTimeout(() => {
-      state.phase = 'drop';
-      state.dropAt = performance.now();
-      el.dot.classList.remove('hold');
-      el.dot.classList.add('drop');
-      el.puck.className = 'puck down';
-      el.status.className = 'status go';
-      el.status.textContent = 'DROP — tap now';
-      playWhistle();
-    }, delay);
+    state.isCatch = Math.random() < CATCH_P;
+    state.holdTimer = setTimeout(() => { state.holdTimer = null; state.isCatch ? doCatchReset() : doDrop(); }, delay);
     state.phase = 'hold';
     el.dot.classList.add('hold');
   }
 
   function tossed() {
     clearHold();
-    state.tossed += 1;
-    state.reps.push({ ms: null, tossed: true });
+    const wasCatch = state.isCatch;
+    state.isCatch = false;
+    if (!wasCatch) state.tossed += 1;
+    state.reps.push({ ms: null, tossed: true, catch: wasCatch, hold: state.lastHold });
+    el.dot.classList.remove('catch');
     el.dot.classList.add('tossed');
     el.overlay.hidden = false;
-    el.overlay.innerHTML = '<div><strong>TOSSED</strong><small>Jumped the drop — that rep’s gone. Tap to re-center.</small></div>';
+    el.overlay.innerHTML = wasCatch ? '<div><strong>FALSE START</strong><small>That was a no-drop rep — he never released it. Tap to re-center.</small></div>'
+      : '<div><strong>TOSSED</strong><small>Jumped the drop — that rep’s gone. Tap to re-center.</small></div>';
     el.status.className = 'status toss';
     el.status.textContent = 'Violation — early jump';
     state.phase = 'feedback';
@@ -711,7 +828,7 @@
 
   function success(rawMs) {
     const ms = Math.max(0, Math.round(rawMs - state.latencyOffset));
-    state.reps.push({ ms, tossed: false });
+    state.reps.push({ ms, tossed: false, hold: state.lastHold });
     if (state.bestToday == null || ms < state.bestToday) {
       state.bestToday = ms;
       LS.setItem('fo_best_' + new Date().toDateString(), String(ms));
@@ -727,8 +844,9 @@
   }
 
   function maybeFinishSet() {
-    if (state.reps.length < 10) return;
-    const valid = state.reps.filter(r => !r.tossed).map(r => r.ms);
+    if (dropReps(state.reps).length < 10) return;
+    const valid = dropReps(state.reps).filter(r => !r.tossed).map(r => r.ms);
+    const cr = catchReps(state.reps);
     const avg = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0) / valid.length) : null;
     const best = valid.length ? Math.min(...valid) : null;
     const goal = Number(el.goalBand.value);
@@ -744,7 +862,15 @@
       player: el.playerName.value.trim() || 'Player',
       avg,
       best,
-      tossed: state.reps.filter(r => r.tossed).length,
+      tossed: dropReps(state.reps).filter(r => r.tossed).length,
+      zone: el.zone.value,
+      median: median(valid),
+      sd: sdev(valid),
+      iqr: iqr(valid),
+      earlyPct: Math.round(100 * dropReps(state.reps).filter(r => r.tossed).length / 10),
+      catchN: cr.length,
+      catchFS: cr.filter(r => r.tossed).length,
+      cue: state.cue ? 'visual+whistle' : 'visual',
       goalPct: valid.length ? Math.round(100 * hits / valid.length) : 0,
       reps: state.reps.slice(),
       at: new Date().toISOString(),
@@ -753,7 +879,7 @@
     LS.setItem('fo_session_v2', JSON.stringify(state.session.slice(0, 50)));
     addHistory(entry);
     renderLog();
-    toast(`Set complete · avg ${fmt(avg)}`);
+    toast(`Set complete · median ${fmt(entry.median)} · SD ${fmt(entry.sd)}`);
     // prepare next set but keep best today
     state.reps = [];
     state.tossed = 0;
@@ -767,7 +893,7 @@
       lineUp();
       return;
     }
-    if (state.phase === 'lined' || state.phase === 'hold') {
+    if (state.phase === 'lined' || state.phase === 'hold' || state.phase === 'catch') {
       tossed();
       return;
     }
@@ -777,25 +903,28 @@
   }
 
   function renderAll() {
-    const valid = state.reps.filter(r => !r.tossed).map(r => r.ms);
+    const dr = dropReps(state.reps), cr = catchReps(state.reps);
+    const valid = dr.filter(r => !r.tossed).map(r => r.ms);
     const last = state.reps.length ? state.reps[state.reps.length - 1] : null;
-    const lastMs = last && !last.tossed ? last.ms : null;
-    const avg = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0) / valid.length) : null;
-    el.lastVal.textContent = last && last.tossed ? 'TOSS' : fmt(lastMs);
+    const lastMs = last && !last.tossed && !last.catch ? last.ms : null;
+    const avg = median(valid);
+    el.lastVal.textContent = last && last.tossed ? (last.catch ? 'FALSE' : 'TOSS') : last && last.catch ? 'HELD' : fmt(lastMs);
     el.lastVal.className = 'v ' + (last && last.tossed ? 'slow' : bandClass(lastMs));
     el.avgVal.textContent = fmt(avg);
     el.avgVal.className = 'v ' + bandClass(avg);
+    el.sdVal.textContent = fmt(sdev(valid));
+    el.catchVal.textContent = `${cr.filter(r => r.tossed).length} / ${cr.length}`;
     el.bestVal.textContent = fmt(state.bestToday);
     el.bestVal.className = 'v ' + bandClass(state.bestToday);
-    el.tossVal.textContent = String(state.reps.filter(r => r.tossed).length);
-    el.repVal.textContent = `${state.reps.length} / 10`;
+    el.tossVal.textContent = String(dr.filter(r => r.tossed).length);
+    el.repVal.textContent = `${dr.length} / 10`;
     const goal = Number(el.goalBand.value);
     const hits = valid.filter(v => v < goal).length;
     el.goalVal.textContent = `${hits} / ${valid.length || 0}`;
 
     el.chart.innerHTML = '';
     for (let i = 0; i < 10; i++) {
-      const rep = state.reps[i];
+      const rep = dr[i];
       const bar = document.createElement('div');
       bar.className = 'bar';
       if (rep) {
@@ -830,12 +959,14 @@
       const time = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return `<tr>
         <td>${s.n}</td>
-        <td>${s.mode}</td>
-        <td>${s.side}</td>
+        <td>${esc(s.mode)}</td>
+        <td>${esc(s.zone || '—')}</td>
+        <td>${esc(s.side)}</td>
         <td>${esc(s.opponent || '—')}</td>
-        <td>${fmt(s.avg)}</td>
-        <td>${fmt(s.best)}</td>
+        <td>${fmt(s.median ?? s.avg)}</td>
+        <td>${fmt(s.sd)}</td>
         <td>${s.tossed}</td>
+        <td>${s.catchN != null ? s.catchFS + '/' + s.catchN : '—'}</td>
         <td>${s.goalPct}%</td>
         <td>${time}</td>
         <td>${s.id ? `<button class="btn sm" data-review="${s.id}" type="button">Review</button>` : ''}</td>
@@ -846,7 +977,7 @@
   function startCalibrate() {
     state.calibrating = true;
     clearHold();
-    setPhase('idle', 'Calibration: tap as soon as the dot flashes gold', 'ready');
+    setPhase('idle', 'Calibration: tap as soon as the dot flashes gold', 'ready'); el.dot.classList.add('lined');
     el.overlay.hidden = false;
     el.overlay.innerHTML = '<div><strong>CALIBRATE</strong><small>Get ready…</small></div>';
     setTimeout(() => {
@@ -881,7 +1012,7 @@
   }
 
   // Events
-  el.dot.addEventListener('pointerdown', onDot);
+  el.wrap.addEventListener('pointerdown', onDot);
   el.dot.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') onDot(e);
   });
@@ -897,7 +1028,7 @@
     syncCueBtn();
     savePrefs();
   });
-  ['playerName','handedness','side','goalBand'].forEach(id => {
+  ['playerName','handedness','side','goalBand','zone'].forEach(id => {
     document.getElementById(id).addEventListener('change', savePrefs);
     document.getElementById(id).addEventListener('blur', savePrefs);
   });
@@ -915,14 +1046,7 @@
   document.getElementById('skipBtn').addEventListener('click', () => {
     if (state.phase === 'hold' || state.phase === 'lined') {
       clearHold();
-      state.phase = 'drop';
-      state.dropAt = performance.now();
-      el.dot.classList.remove('hold');
-      el.dot.classList.add('drop');
-      el.puck.className = 'puck down';
-      el.status.className = 'status go';
-      el.status.textContent = 'DROP — tap now';
-      playWhistle();
+      doDrop();
     }
   });
   document.getElementById('calibrateBtn').addEventListener('click', startCalibrate);
@@ -960,11 +1084,12 @@
   }
 
   // ---------- CSV ----------
-  const CSV_COLS = ['set_id','player','hand','set','mode','side','opponent','avg_ms','best_ms','tossed','goal_ms','goal_pct','iso_time','reps'];
+  const CSV_COLS = ['set_id','player','hand','set','mode','side','opponent','avg_ms','best_ms','tossed','goal_ms','goal_pct','iso_time','reps','zone','median_ms','sd_ms','iqr_ms','early_jump_pct','catch_trials','catch_false_starts','cue'];
   function toCsv(list) {
     const rows = [CSV_COLS];
     list.forEach(s => rows.push([s.id || '', s.player, s.hand, s.n, s.mode, s.side, s.opponent || '', s.avg ?? '', s.best ?? '', s.tossed, s.goal ?? '', s.goalPct, s.at,
-      (s.reps || []).map(r => r.tossed ? 'T' : r.ms).join('|')]));
+      (s.reps || []).map(r => r.catch ? (r.tossed ? 'CF' : 'C') : r.tossed ? 'T' : r.ms).join('|'),
+      s.zone || '', s.median ?? '', s.sd ?? '', s.iqr ?? '', s.earlyPct ?? '', s.catchN ?? '', s.catchFS ?? '', s.cue || '']));
     return rows.map(r => r.map(x => `"${String(x ?? '').replaceAll('"','""')}"`).join(',')).join('\n');
   }
   function parseCsv(text) {
@@ -982,10 +1107,12 @@
     const num = v => v === '' || v == null ? null : Number(v);
     return rows.filter(r => r.length > 1).map(r => {
       const o = {}; head.forEach((h, i) => o[h] = r[i]);
-      const reps = (o.reps || '').split('|').filter(Boolean).map(x => x === 'T' ? { ms: null, tossed: true } : { ms: Number(x), tossed: false });
+      const reps = (o.reps || '').split('|').filter(Boolean).map(x => x === 'T' ? { ms: null, tossed: true } : x === 'C' ? { ms: null, tossed: false, catch: true } : x === 'CF' ? { ms: null, tossed: true, catch: true } : { ms: Number(x), tossed: false });
       return { id: o.set_id || '', player: o.player || 'Player', hand: o.hand || '', n: num(o.set), mode: o.mode || '', side: o.side || '',
         opponent: o.opponent || '', avg: num(o.avg_ms), best: num(o.best_ms), tossed: num(o.tossed) || 0, goal: num(o.goal_ms),
-        goalPct: num(o.goal_pct) || 0, at: o.iso_time || '', reps, imported: true };
+        goalPct: num(o.goal_pct) || 0, at: o.iso_time || '', reps, imported: true,
+        zone: o.zone || '', median: num(o.median_ms), sd: num(o.sd_ms), iqr: num(o.iqr_ms), earlyPct: num(o.early_jump_pct),
+        catchN: num(o.catch_trials), catchFS: num(o.catch_false_starts), cue: o.cue || '' };
     });
   }
   function download(name, text, type) {
@@ -1010,6 +1137,8 @@
     if (v === 'video') renderVideoSet();
     if (v === 'dash') renderDash();
     if (v === 'opps') renderOpps();
+    if (v === 'quiz' && !quiz.order.length) startQuiz();
+    if (v === 'cards') renderCard();
   }
 
   // ---------- opponents ----------
@@ -1058,7 +1187,7 @@
   function refreshSetPicker(selectId) {
     const sel = $('vSet'); const cur = selectId || sel.value;
     const h = allData().slice().reverse().filter(s => s.id);
-    sel.innerHTML = h.length ? h.map(s => `<option value="${s.id}">${esc(s.player)} · ${new Date(s.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${esc(s.opponent || s.mode)} · avg ${fmt(s.avg)}</option>`).join('') : '<option value="">No completed sets yet</option>';
+    sel.innerHTML = h.length ? h.map(s => `<option value="${s.id}">${esc(s.player)} · ${new Date(s.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${esc(s.opponent || s.mode)} · med ${fmt(s.median ?? s.avg)}</option>`).join('') : '<option value="">No completed sets yet</option>';
     if (cur && h.some(s => s.id === cur)) sel.value = cur;
   }
   function getSet(id) { return allData().find(s => s.id === id); }
@@ -1080,11 +1209,11 @@
     const notes = load(K.notes, {});
     const n = s ? (notes[s.id] || { marks: {}, text: '' }) : null;
     if (!s) { $('vSummary').textContent = 'Finish a set on the Trainer first.'; $('vChart').innerHTML = ''; $('vReps').innerHTML = ''; $('vNotes').value = ''; return; }
-    $('vSummary').textContent = `${s.player} (${s.hand}) · ${s.side} side · ${s.opponent ? 'vs ' + s.opponent : s.mode} · avg ${fmt(s.avg)} · best ${fmt(s.best)} · tossed ${s.tossed} · goal ${s.goalPct}%`;
-    $('vChart').innerHTML = repSvg(s.reps || [], s.goal);
+    $('vSummary').textContent = `${s.player} (${s.hand}) · ${s.side} side · ${s.opponent ? 'vs ' + s.opponent : s.mode} · ${s.zone ? s.zone + ' zone · ' : ''}median ${fmt(s.median ?? s.avg)} · SD ${fmt(s.sd)} · early jumps ${s.tossed}${s.catchN != null ? ' · catch FS ' + s.catchFS + '/' + s.catchN : ''} · best ${fmt(s.best)}`;
+    $('vChart').innerHTML = repSvg(dropReps(s.reps), s.goal);
     $('vReps').innerHTML = (s.reps || []).map((r, i) => {
       const m = n.marks[i] || {};
-      return `<tr><td>${i + 1}</td><td>${r.tossed ? '<b style="color:#c8102e">TOSS</b>' : r.ms + ' ms'}</td>
+      return `<tr><td>${i + 1}</td><td>${r.catch ? (r.tossed ? '<b style="color:#c8102e">FALSE START (no drop)</b>' : 'held (no drop)') : r.tossed ? '<b style="color:#c8102e">TOSS</b>' : r.ms + ' ms'}</td>
         <td><button class="btn sm" data-mark="${i}" type="button">Mark</button> ${m.t != null ? `<span class="tslink" data-seek="${m.t}">${m.t.toFixed(2)}s</span>` : ''}</td>
         <td><input data-rnote="${i}" value="${esc(m.note || '')}" placeholder="note"/></td></tr>`;
     }).join('') || '<tr><td colspan="4" class="empty">Rep detail not available (imported from older CSV).</td></tr>';
@@ -1100,11 +1229,16 @@
 
   // ---------- dashboard ----------
   function stats(list) {
-    const reps = list.flatMap(s => s.reps && s.reps.length ? s.reps : []);
+    const reps = list.flatMap(s => s.reps && s.reps.length ? dropReps(s.reps) : []);
     const v = list.filter(s => s.avg != null);
-    const repCount = reps.length || list.length * 10;
+    const repCount = list.reduce((a, s) => a + (s.reps && s.reps.length ? dropReps(s.reps).length : 10), 0);
     const tossed = list.reduce((a, s) => a + (Number(s.tossed) || 0), 0);
-    return { sets: list.length, avg: v.length ? Math.round(v.reduce((a, s) => a + s.avg, 0) / v.length) : null,
+    // Pool rep times where available; fall back to set medians/averages for old CSV rows without rep detail.
+    const times = list.flatMap(s => s.reps && s.reps.length ? dropReps(s.reps).filter(r => !r.tossed && r.ms != null && !isNaN(r.ms)).map(r => r.ms) : (s.median ?? s.avg) != null ? [s.median ?? s.avg] : []);
+    const cN = list.reduce((a, s) => a + (s.reps && s.reps.length ? catchReps(s.reps).length : Number(s.catchN) || 0), 0);
+    const cF = list.reduce((a, s) => a + (s.reps && s.reps.length ? catchReps(s.reps).filter(r => r.tossed).length : Number(s.catchFS) || 0), 0);
+    return { sets: list.length, med: median(times), sd: sdev(times), iqr: iqr(times), catchN: cN, catchFS: cF, catchRate: cN ? Math.round(100 * cF / cN) : null,
+      avg: v.length ? Math.round(v.reduce((a, s) => a + s.avg, 0) / v.length) : null,
       best: v.length ? Math.min(...list.filter(s => s.best != null).map(s => s.best)) : null,
       tossRate: repCount ? Math.round(100 * tossed / repCount) : 0,
       goal: list.length ? Math.round(list.reduce((a, s) => a + (Number(s.goalPct) || 0), 0) / list.length) : 0 };
@@ -1112,18 +1246,18 @@
   function splitSvg(groups) {
     const keys = Object.keys(groups); if (!keys.length) return '<div class="empty">No data.</div>';
     const rowH = 26, W = 340, H = keys.length * rowH + 6;
-    const max = Math.max(350, ...keys.map(k => stats(groups[k]).avg || 0));
+    const max = Math.max(350, ...keys.map(k => stats(groups[k]).med || 0));
     let g = '';
     keys.forEach((k, i) => {
-      const st = stats(groups[k]), y = i * rowH + 3, w = st.avg ? (st.avg / max) * 170 : 0;
-      const col = st.avg == null ? '#ccc' : st.avg < 200 ? '#1f8a4c' : st.avg < 250 ? '#0b6bcb' : st.avg < 300 ? '#c45c00' : '#c8102e';
+      const st = stats(groups[k]), y = i * rowH + 3, w = st.med ? (st.med / max) * 170 : 0;
+      const col = st.med == null ? '#ccc' : st.med < 200 ? '#1f8a4c' : st.med < 250 ? '#0b6bcb' : st.med < 300 ? '#c45c00' : '#c8102e';
       g += `<text x="0" y="${y + 15}" font-size="11" fill="#0b1f3a">${esc(k.slice(0, 16))}</text><rect x="100" y="${y + 3}" width="${w}" height="16" rx="3" fill="${col}"/>
-        <text x="${104 + w}" y="${y + 15}" font-size="10" fill="#5b6f8a">${st.avg ?? '—'} ms · ${st.sets} sets · T ${st.tossRate}% · G ${st.goal}%</text>`;
+        <text x="${104 + w}" y="${y + 15}" font-size="10" fill="#5b6f8a">med ${st.med ?? '—'} · SD ${st.sd ?? '—'} · ${st.sets} sets · early ${st.tossRate}%${st.catchRate != null ? ' · catch FS ' + st.catchRate + '%' : ''}</text>`;
     });
-    return `<svg viewBox="0 0 ${W + 120} ${H}" width="100%">${g}</svg>`;
+    return `<svg viewBox="0 0 ${W + 200} ${H}" width="100%">${g}</svg>`;
   }
   function trendSvg(list) {
-    const pts = list.filter(s => s.avg != null);
+    const pts = list.map(s => ({ ...s, avg: s.median ?? s.avg })).filter(s => s.avg != null);
     if (pts.length < 1) return '<div class="empty">No completed sets yet.</div>';
     const W = 600, H = 180, P = 30;
     const ys = pts.map(s => s.avg), lo = Math.min(...ys, 150) - 10, hi = Math.max(...ys, 320) + 10;
@@ -1137,7 +1271,7 @@
     g += `<polyline fill="none" stroke="#c8102e" stroke-width="2.5" points="${roll.map((v, i) => X(i) + ',' + Y(v)).join(' ')}"/>`;
     pts.forEach((s, i) => g += `<circle cx="${X(i)}" cy="${Y(s.avg)}" r="3" fill="#0b6bcb"><title>${esc(s.player)} ${String(s.at).slice(0, 10)} ${s.avg} ms ${esc(s.opponent || s.mode)}</title></circle>`);
     g += `<text x="${P}" y="${H - 2}" font-size="9" fill="#5b6f8a">${String(pts[0].at).slice(0, 10)}</text><text x="${W - 5}" y="${H - 2}" font-size="9" text-anchor="end" fill="#5b6f8a">${String(pts[pts.length - 1].at).slice(0, 10)}</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg><div class="hint">Blue = each set · Red = 5-set rolling average · dashed = 200/250/300 bands</div>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg><div class="hint">Blue = each set median (avg for old sets) · Red = 5-set rolling · dashed = 200/250/300 bands</div>`;
   }
   const groupBy = (list, f) => list.reduce((m, s) => { const k = f(s) || '—'; (m[k] = m[k] || []).push(s); return m; }, {});
   function renderDash() {
@@ -1149,19 +1283,20 @@
     const list = sel.value ? data.filter(s => s.player === sel.value) : data;
     $('dInfo').textContent = `${data.length} sets total (${load(K.imp, []).length} imported, ${data.length - data.filter(s => s.imported).length} from this device).`;
     const st = stats(list);
-    $('dCards').innerHTML = [['Sets', st.sets], ['Avg', fmt(st.avg)], ['Best', fmt(st.best)], ['Toss rate', st.tossRate + '%'], ['Goal hit', st.goal + '%']]
-      .map(([k, v]) => `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    $('dCards').innerHTML = [['Median RT', fmt(st.med)], ['Variability SD', fmt(st.sd)], ['IQR', fmt(st.iqr)], ['Early-jump rate', st.tossRate + '%'], ['Catch false starts', st.catchRate != null ? st.catchRate + '% (' + st.catchFS + '/' + st.catchN + ')' : '—'], ['Goal hit', st.goal + '%'], ['Sets', st.sets], ['Best ever', fmt(st.best), 1]]
+      .map(([k, v, sm]) => `<div class="metric${sm ? ' small' : ''}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     $('dTrend').innerHTML = trendSvg(list);
     $('dSide').innerHTML = splitSvg(groupBy(list, s => s.side));
     $('dMode').innerHTML = splitSvg(groupBy(list, s => s.mode));
+    $('dZone').innerHTML = splitSvg(groupBy(list, s => s.zone || 'unlogged'));
     $('dOpp').innerHTML = splitSvg(groupBy(list.filter(s => s.opponent), s => s.opponent));
     const byP = groupBy(data, s => s.player);
-    $('dTable').innerHTML = `<table><thead><tr><th>Player</th><th>Sets</th><th>Avg</th><th>Best</th><th>Toss%</th><th>Goal%</th><th>Strong</th><th>Weak</th><th>Last</th></tr></thead><tbody>${
+    $('dTable').innerHTML = `<table><thead><tr><th>Player</th><th>Sets</th><th>Median</th><th>SD</th><th>Early%</th><th>Catch FS%</th><th>Goal%</th><th>Strong</th><th>Weak</th><th>Best</th><th>Last</th></tr></thead><tbody>${
       Object.keys(byP).sort().map(p => { const L = byP[p], a = stats(L), sS = stats(L.filter(s => s.side === 'strong')), sW = stats(L.filter(s => s.side === 'weak'));
-        return `<tr><td>${esc(p)}</td><td>${a.sets}</td><td>${fmt(a.avg)}</td><td>${fmt(a.best)}</td><td>${a.tossRate}%</td><td>${a.goal}%</td><td>${fmt(sS.avg)}</td><td>${fmt(sW.avg)}</td><td>${String(L[L.length - 1].at).slice(0, 10)}</td></tr>`; }).join('')}</tbody></table>`;
+        return `<tr><td>${esc(p)}</td><td>${a.sets}</td><td>${fmt(a.med)}</td><td>${fmt(a.sd)}</td><td>${a.tossRate}%</td><td>${a.catchRate != null ? a.catchRate + '%' : '—'}</td><td>${a.goal}%</td><td>${fmt(sS.med)}</td><td>${fmt(sW.med)}</td><td>${fmt(a.best)}</td><td>${String(L[L.length - 1].at).slice(0, 10)}</td></tr>`; }).join('')}</tbody></table>`;
   }
   function backup() {
-    const out = { app: 'faceoff-trainer', version: 3, exported: new Date().toISOString(), data: {} };
+    const out = { app: 'faceoff-trainer', version: 4, exported: new Date().toISOString(), data: {} };
     for (let i = 0; i < LS.length; i++) { const k = LS.key(i); if (k.startsWith('fo_')) out.data[k] = LS.getItem(k); }
     download(`faceoff-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 1), 'application/json');
   }
@@ -1178,6 +1313,97 @@
       } catch { toast('Not a valid Faceoff backup file'); }
     };
     r.readAsText(file);
+  }
+
+  // ---------- rules quiz ----------
+  const N26 = 'NCAA 2026-27', NC = 'NCAA', NHL = 'NHL';
+  const QUIZ = [
+    { t: N26, q: 'Under the 2026-27 NCAA faceoff rule, where must each center\'s stick blade be?', c: ['Anywhere on the ice near the dot', 'Full blade flat on the ice inside the designated white area', 'Heel of the blade touching the white area, toe may be lifted', 'Above the ice until the puck is dropped'], a: 1, e: 'New for 2026-27 (Rule 81): both centers must have the full blade flat on the ice inside the designated white area.' },
+    { t: N26, q: 'Can a center angle or lift his blade off the ice once set for a faceoff in 2026-27?', c: ['Yes, as long as the heel is in the white', 'Yes, but only at center ice', 'No — the full blade must be flat inside the white area', 'Only the visiting center may'], a: 2, e: 'Angling or lifting the blade is no longer allowed under the 2026-27 blade-flat requirement.' },
+    { t: N26, q: 'At one of the eight non-center-ice dots, who puts his stick down first?', c: ['The attacking player', 'The defending player', 'The home player', 'Whoever the linesperson points to'], a: 1, e: 'At the eight non-center dots the defending player places his stick first, then the attacker immediately after.' },
+    { t: N26, q: 'At center ice, who puts his stick down first?', c: ['The home player', 'The visiting player', 'The team that was scored on', 'The defending player'], a: 1, e: 'At center ice the visiting player goes first.' },
+    { t: N26, q: 'After the defending center sets at a non-center dot, when does the attacking center set?', c: ['Immediately after', 'After the linesperson blows the whistle', 'Whenever he likes before the drop', 'Only after the wingers are set'], a: 0, e: 'Stick order: defender first, attacker right after.' },
+    { t: N26, q: '2026-27 point of emphasis: when should the linesperson drop the puck?', c: ['After a fixed two-second count', 'Only once both centers are in a legal position', 'As soon as one center is set', 'When the home center signals ready'], a: 1, e: 'Linespersons are told not to drop the puck until both players are legal.' },
+    { t: N26, q: 'What body position does the 2026-27 point of emphasis require from the center?', c: ['Skates may touch the hash marks if square', 'Square, facing the opponent\'s end, both skates clear of the markings', 'Angled toward his strong side', 'Any stance, as long as the blade is flat'], a: 1, e: 'Center must be square, facing the opponent\'s end, with both skates clear of the markings.' },
+    { t: N26, q: 'How are officials told to handle repeat faceoff violations in 2026-27?', c: ['Warn the team indefinitely', 'Assess the penalty on a clear second violation', 'Ignore them unless the coach complains', 'Award a penalty shot'], a: 1, e: 'Point of emphasis: assess the penalty on a clear second violation instead of letting repeat violations slide.' },
+    { t: NC, q: 'In NCAA hockey, what happens on a center\'s FIRST faceoff violation (normal situation)?', c: ['A warning only', 'He is removed and another player takes the draw', 'Minor penalty', 'The other team picks the dot'], a: 1, e: 'Rule 81.3: on the first violation the offending center is removed and another player takes the draw.' },
+    { t: NC, q: 'When does the NCAA first-violation removal NOT apply?', c: ['When substitutions aren\'t allowed', 'In overtime', 'On the power play', 'At center ice'], a: 0, e: 'Rule 81.3 exception: removal doesn\'t apply when substitutions aren\'t allowed.' },
+    { t: N26, q: 'Rule 67.6 (new): the attacking team shoots the puck in from its own side of the red line and the goalie freezes it. Where is the faceoff?', c: ['Center ice', 'Neutral zone dot nearest the shot', 'In the defending team\'s end zone', 'Wherever the referee chooses'], a: 2, e: 'The faceoff goes to the defending team\'s end zone.' },
+    { t: N26, q: 'After that goalie freeze (Rule 67.6), may the defending team change lines?', c: ['Yes, freely', 'No — the defending team cannot change', 'Only the goalie may change', 'Only if a timeout is called'], a: 1, e: 'The defending team cannot change — expect a tired defending unit.' },
+    { t: N26, q: 'After that goalie freeze (Rule 67.6), who chooses which end-zone dot is used?', c: ['The defending team', 'The attacking team', 'The referee', 'Coin flip'], a: 1, e: 'The attacking team picks the dot — usually the one that suits its center\'s strong side.' },
+    { t: N26, q: 'What\'s the main tactical effect of Rule 67.6 for a center?', c: ['Fewer defensive-zone draws', 'More D-zone draws against a tired defending unit, with the attacker choosing the dot', 'All draws move to center ice', 'Centers can no longer be removed'], a: 1, e: 'More tired-defender D-zone draws, and the attacking team picks the dot to suit its center\'s strong side.' },
+    { t: N26, q: 'Rule 84.3 (new): after a hand pass, where is the faceoff?', c: ['Center ice', 'Offending team\'s defensive zone always', 'Dot nearest the infraction that gives the least territorial advantage', 'Wherever the non-offending team chooses'], a: 2, e: 'After a hand pass, the faceoff goes to the dot nearest the infraction that gives the least territorial advantage.' },
+    { t: N26, q: 'Rule 84.4 (new): after a high stick, where is the faceoff?', c: ['Dot nearest the infraction that gives the least territorial advantage', 'Always the offending team\'s end zone', 'Center ice', 'Spot of the infraction exactly'], a: 0, e: 'Same principle as a hand pass: nearest dot giving the least territorial advantage.' },
+    { t: NC, q: 'Rule 15.4: when a penalty is enforced, who chooses which offensive-zone dot is used?', c: ['The offending team', 'The non-offending team', 'The referee', 'The home team'], a: 1, e: 'The non-offending team chooses the offensive-zone dot — pick your center\'s strong side.' },
+    { t: NC, q: 'Rule 81.2: the puck is deflected out of play in the offensive zone. Where is the faceoff?', c: ['Neutral zone', 'It stays in that zone', 'Center ice', 'Defending team\'s choice'], a: 1, e: 'A puck deflected out of play in the offensive zone keeps the faceoff in that zone.' },
+    { t: NHL, q: 'NHL (since 2024-25): after an icing, what happens on a center\'s first faceoff violation?', c: ['He is removed, like the NCAA', 'Both centers (including the offensive one) get one warning, not removal', 'Immediate minor penalty', 'The other team picks the dot'], a: 1, e: 'NHL 2024-25 change: after an icing both centers get one warning instead of removal.' },
+    { t: NHL, q: 'NHL: after the icing warning, what does a second violation by that team bring?', c: ['Another warning', 'A bench minor', 'A penalty shot', 'Nothing'], a: 1, e: 'A second violation by that team after the icing warning is a bench minor.' },
+    { t: NHL, q: 'NCAA vs NHL after an icing: which is correct?', c: ['Both give a warning', 'Both remove the center', 'NCAA keeps automatic removal; NHL gives a warning', 'NCAA warns; NHL removes'], a: 2, e: 'NCAA keeps automatic removal; the NHL gives a warning after icing. Know which book you\'re playing under.' },
+  ];
+  const quiz = { order: [], i: 0, score: 0, answered: false };
+  function startQuiz() {
+    const f = $('qFilter').value;
+    const pool = QUIZ.map((q, i) => i).filter(i => f === 'all' || (f === 'nhl' ? QUIZ[i].t === NHL : f === 'new' ? QUIZ[i].t === N26 : QUIZ[i].t !== NHL));
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    Object.assign(quiz, { order: pool, i: 0, score: 0, answered: false });
+    renderQuiz();
+  }
+  function renderQuiz() {
+    const box = $('quizBox');
+    if (quiz.i >= quiz.order.length) {
+      const best = load('fo_quiz_best', 0), pct = Math.round(100 * quiz.score / quiz.order.length);
+      if (pct > best) save('fo_quiz_best', pct);
+      box.innerHTML = `<div class="qcard"><b>Done: ${quiz.score} / ${quiz.order.length} (${pct}%)</b><div class="hint">Best on this device: ${Math.max(best, pct)}%</div><div class="actions"><button class="btn primary" data-qrestart="1" type="button">Go again</button></div></div>`;
+      return;
+    }
+    const q = QUIZ[quiz.order[quiz.i]];
+    box.innerHTML = `<div class="qcard"><span class="tag${q.t === NHL ? ' nhl' : ''}">${q.t}</span> <span class="hint">Question ${quiz.i + 1} of ${quiz.order.length} · score ${quiz.score}</span>
+      <p style="font-weight:700;margin:10px 0 4px">${esc(q.q)}</p>
+      ${q.c.map((c, k) => `<button class="btn qopt" data-qa="${k}" type="button">${esc(c)}</button>`).join('')}
+      <div id="qExplain"></div></div>`;
+  }
+  function quizClick(e) {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.qrestart) return startQuiz();
+    if (t.dataset.qnext) { quiz.i++; quiz.answered = false; return renderQuiz(); }
+    if (t.dataset.qa == null || quiz.answered) return;
+    quiz.answered = true;
+    const q = QUIZ[quiz.order[quiz.i]], k = Number(t.dataset.qa), ok = k === q.a;
+    if (ok) quiz.score++;
+    document.querySelectorAll('#quizBox .qopt').forEach(b => { const n = Number(b.dataset.qa); if (n === q.a) b.classList.add('right'); else if (n === k) b.classList.add('wrong'); b.disabled = true; });
+    $('qExplain').innerHTML = `<p style="margin-top:10px"><b style="color:${ok ? '#1f8a4c' : '#c8102e'}">${ok ? 'Correct.' : 'Not quite.'}</b> ${esc(q.e)}</p><div class="actions"><button class="btn primary" data-qnext="1" type="button">${quiz.i + 1 < quiz.order.length ? 'Next' : 'See score'}</button></div>`;
+  }
+
+  // ---------- strategy cards ----------
+  const SZ = {
+    offensive: { name: 'Offensive zone', move: 'Win it back to the D/point, or straight to the slot for a quick shot.', why: 'The attacking team captures most of the value of a won draw. An end-zone win is worth roughly 2–3× a neutral-zone win (NHL 5v5: ≈ +0.016–0.019 net xG vs ≈ +0.007 in the next 20 s).' },
+    defensive: { name: 'Defensive zone', move: 'Priority #1 is not losing clean. A tie-up is fine; win back to your strong-side D or out to the boards.', why: 'A clean loss here hands the other team the high-value end-zone possession. Same ~2–3× value as an offensive-zone draw, but against you.' },
+    neutral: { name: 'Neutral zone', move: 'Push it forward or win it back to the D to regroup.', why: 'Lowest value of the three zones (≈ +0.007 net xG at 5v5, NHL), so don\'t take a violation risk chasing it.' },
+  };
+  const SS = {
+    strong: { move: 'Backhand pull, straight back or back toward the boards.', why: 'Strong-side centers win more: a strong-side taker beats a weak-side taker ~57% of the time (model estimate), and about two-thirds of strong-side wins go back or back-outside (NHL 2017-18).' },
+    weak: { move: 'Backhand back toward the middle (back-inside), or tie up and let a winger come in. Some centers switch to forehand on this side.', why: 'Weak-side win rates are lower (NHL ~45–49%). Weak-side takers who do win tend to go back-inside.' },
+  };
+  const ST = {
+    ev: { name: '5v5', tip: 'Aim for clean wins over 50/50 scrums.', why: 'The share of a player\'s wins that were clean tracked with xG differential (r ≈ 0.24); raw faceoff % didn\'t (≈ −0.07).' },
+    pp: { name: 'Power play', tip: 'Have a set play: win to the half wall or to a one-timer.', why: 'Special-teams draws are worth more per draw than 5v5 (one estimate ≈ 3.7 goals per 100 wins).' },
+    pk: { name: 'Penalty kill', tip: 'Take the safe tie-up, then clear.', why: 'Losing clean on the PK gives the power play immediate set-up time; a neutralized draw is a good outcome.' },
+    late: { name: 'Late game / 6v5', tip: 'Highest-leverage draw of the game. Don\'t jump: one violation removes you, and a clear second team violation is now a penalty (NCAA 2026-27 emphasis).', why: 'With the goalie pulled, the offensive-zone draw decides whether the extra attacker ever gets set up.' },
+  };
+  function renderCard() {
+    const z = SZ[$('sZone').value], sd = SS[$('sSide').value], st = ST[$('sState').value], zone = $('sZone').value;
+    let extra = '';
+    if (zone === 'defensive' && $('sState').value !== 'pp') extra = '<li>After a goalie freeze on a shot-in from the attacker\'s half (NCAA Rule 67.6), your unit can\'t change and the attacker picks the dot — expect tired legs and their center\'s strong side.</li>';
+    if (zone === 'offensive') extra = '<li>If your team earned a penalty or a 67.6 freeze, your bench picks the dot — ask for your strong side.</li>';
+    $('sCard').innerHTML = `<div class="label">${z.name} · ${$('sSide').value === 'strong' ? 'Strong' : 'Weak'} side · ${st.name}</div>
+      <h4>Recommended move</h4><p><b>${z.move}</b></p><p>${sd.move}</p>
+      <h4>Game state</h4><p>${st.tip}${zone === 'defensive' && $('sState').value === 'late' ? ' Defending 6v5: tie up and get it out — a clean loss is the worst result.' : ''}</p>
+      <h4>Why</h4><ul><li>${z.why}</li><li>${sd.why}</li><li>${st.why}</li>${extra}</ul>`;
+    $('sBasics').innerHTML = `<div class="label">Every draw</div><ul>
+      <li><b>Eyes on the linesman's hand</b>, not the puck in flight. Start on the release — jumping before the drop is a violation.</li>
+      <li><b>Blade flat in the white</b>, square to the opponent's end, skates clear of the markings (NCAA 2026-27). Defender sets first at end/neutral dots; visitor first at center ice.</li>
+      <li><b>Track clean-win % by side</b> in games. That's the number the evidence ties to scoring chances, and the real test of whether this app is helping.</li></ul>
+      <div class="hint">Numbers are from NHL data and analytics sites; no public NCAA faceoff data was found.</div>`;
   }
 
   function initV3() {
@@ -1232,6 +1458,11 @@
     });
     // dashboard
     $('dPlayer').addEventListener('change', renderDash);
+    $('qRestart').addEventListener('click', startQuiz);
+    $('qFilter').addEventListener('change', startQuiz);
+    $('quizBox').addEventListener('click', quizClick);
+    ['sZone', 'sSide', 'sState'].forEach(id => $(id).addEventListener('change', renderCard));
+    $('sZone').value = el.zone.value; $('sSide').value = el.side.value === 'weak' ? 'weak' : 'strong';
     $('dImport').addEventListener('change', async e => {
       let imp = load(K.imp, []), added = 0;
       for (const f of e.target.files) { const rows = parseCsv(await f.text()); imp = imp.concat(rows); added += rows.length; }
